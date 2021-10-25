@@ -1,0 +1,4 @@
+Creating custom blastdb: 
+makeblastdb -in $inputfilename -parse_seqids -taxid_map $taxid_map.txt -dbtype nucl
+Blast query: 
+blastn -task blastn-short -db s_uberis.fasta -outfmt "10 qacc sacc ssciname pident qlen length mismatch gapopen qstart qend sstart send evalue bitscore" -num_alignments 77 -query test.fasta -out test_results.csv

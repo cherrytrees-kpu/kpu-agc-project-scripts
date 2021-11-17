@@ -74,14 +74,14 @@ def get_probes(target_sequence, target_start, min_primer_len, max_primer_len):
                 )
     return list_probes
 
-def generate_blast_results_db(list_probes, blastdb): 
+def generate_blast_results_db(list_probes, blastdb, blastdb_len): 
     blast_results = dict()
     for probe in list_probes:
         probe_id = f"{str(probe['root_pos'])}-{probe['len']}" 
-        blast_results[probe_id] = blast(probe['seq'], blastdb)
+        blast_results[probe_id] = blast(probe['seq'], blastdb, blastdb_len)
     return blast_results
 
-def blast(seq, blastdb): 
+def blast(seq, blastdb, blastdb_len): 
     fasta = tempfile.NamedTemporaryFile(delete=True)
     fasta.write(f">probe\n{str(seq)}".encode())
     fasta.seek(0)
@@ -91,6 +91,8 @@ def blast(seq, blastdb):
         "blastn-short",
         "-db",
         blastdb,
+        "-num_alignments",
+        str(blastdb_len),
         "-outfmt",
         "10 qacc sacc ssciname pident qlen length mismatch gapopen qstart qend sstart send evalue bitscore",
         "-query",
@@ -245,7 +247,7 @@ def main(target_seq_path, target_start, target_end, min_primer_len, max_primer_l
     #CALCULATE SENSITIVITY AND SPECIFICITY
     if check_flag is False: 
         #Execute BLAST
-        blast_results = generate_blast_results_db(list_probes, blastdb)
+        blast_results = generate_blast_results_db(list_probes, blastdb, blastdb_len)
         #Read target accessions
         target_accessions = []
         input_file = open(target_accession_path, 'r')
@@ -321,6 +323,7 @@ def main(target_seq_path, target_start, target_end, min_primer_len, max_primer_l
                 )
             )
         csvwriter.writerows(probe_data)
+
 if __name__ == '__main__': 
     target_seq_path, target_start, target_end, min_primer_len, max_primer_len, check_flag, blastdb, blastdb_len, target_accession_path = parse_args()
     main(target_seq_path, target_start, target_end, min_primer_len, max_primer_len, check_flag, blastdb, blastdb_len, target_accession_path)

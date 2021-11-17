@@ -9,37 +9,38 @@ import subprocess
 import pandas
 import csv
 
-MIN_PRIMER_LEN = 17
-MAX_PRIMER_LEN = 22
-#MAX_TM_DIFF = 5
-LEN_DB = 16194
-BLASTDB = 'SSU_nematode.fasta'
-
 def parse_args(): 
     parser = argparse.ArgumentParser(description='Search for primers')
     parser.add_argument('target_seq_path', 
-        metavar='target_seq', 
         action='store', 
-        type=str, 
-        help = 'path to target seq fasta'
-    )
-    parser.add_argument('list_target_accessions',
-        metavar='target_accessions', 
-        action='store', 
-        type=str, 
-        help = 'path to target accessions'
+        type=pathlib.Path,
+        help = 'Path to target sequence file, fasta format'
     )
     parser.add_argument('pb_start',
         metavar='pb_start', 
         action='store', 
         type=int, 
-        help = 'start coordinate of probe'
+        help = 'Start coordinate of probe, 1-based coordinates'
     )
-    parser.add_argument('pb_end',
-        metavar='pb_end', 
+    parser.add_argument('pb_len',
+        metavar='pb_len', 
         action='store', 
         type=int, 
-        help = 'end coordinate of probe'
+        help = 'Length of the probe'
+    )
+    parser.add_argument('-min_primer_len',
+        action='store',
+        type=int, 
+        default=17,
+        dest='min_primer_len',
+        help='Minimum primer length'
+    )
+    parser.add_argument('-max_primer_len',
+        action='store',
+        type=int, 
+        default=22,
+        dest='max_primer_len',
+        help='Maximum primer length'
     )
     parser.add_argument('-d',
         dest='tm_diff',
@@ -47,14 +48,41 @@ def parse_args():
         action='store',
         type=float,
         default=5.0,
-        help='maximum temperature difference between forward and reverse'
+        help='Maximum temperature difference between forward and reverse'
+    )
+    #Arguments for specificity checking
+    parser.add_argument('-no_sens_spec',
+        action='store_true',
+        dest='sens_spec_flag',
+        help='Flag to not check the putative probes for their specificity and sensitivity'
+    )
+    parser.add_argument('-blastdb',
+        action='store',
+        type=str,
+        dest='blastdb',
+        default='',
+        help='Name of blastdb'
+    )
+    parser.add_argument('-blastdb_len',
+        action='store',
+        type=int,
+        dest='blastdb_len',
+        help='Length of blastdb'
+    )
+    parser.add_argument('-target_accessions', 
+        metavar='target_accessions_path', 
+        action='store', 
+        type=pathlib.Path,
+        dest='target_accessions_path',
+        default='',
+        help = 'Path to target_accessions'
     )
     args = parser.parse_args()
-    target_seq_file_path = pathlib.Path(args.target_seq_path)
-    target_accessions_path = pathlib.Path(args.list_target_accessions)
-    pb_start = args.pb_start
-    pb_end = args.pb_end
-    return (target_seq_file_path, target_accessions_path, pb_start, pb_end, args.tm_diff)
+    pb_end = args.pb_start-1+args.pb_len
+    #Arguments
+    #Target seq path, probe start, probe length, minimum primer length, max primer length, max allowable tm difference, sens_spec_flag, blastdb, blastdb length, target accessions path
+    #Note conversion of pb_start to 0-based coordinate system
+    return (args.target_seq_path, args.pb_start-1, pb_end, args.min_primer_len, args.max_primer_len, args.tm_diff, args.sens_spec_flag, args.blastdb, args.blastdb_len, args.target_accessions_path)
 
 def check_primer(seq): 
     def count_c_g(seq): 
@@ -95,7 +123,7 @@ def check_primer(seq):
     else: 
         return False
 
-def find_fw_primers(target_seq, pb_start):
+def find_fw_primers(target_seq, pb_start, min_primer_len, max_primer_len):
     """
     Function finds all viable FW primers.
     FW primer criteria: 
@@ -140,14 +168,14 @@ def find_fw_primers(target_seq, pb_start):
     list_fw_primers = []
     #Search for each root position and each legal primer length
     for i in range(50): 
-        for fw_len in range(MIN_PRIMER_LEN, MAX_PRIMER_LEN+1):
+        for fw_len in range(min_primer_len, max_primer_len+1):
             fw_start = pb_start - i - fw_len
             fw_end = pb_start - i
             fw_primer_seq = str(target_seq[fw_start:fw_end])
             if check_primer(fw_primer_seq) is True: 
                 list_fw_primers.append(
                     {
-                        'root_pos':pb_start - 1 -i,
+                        'root_pos':pb_start-i,
                         'len':fw_len, 
                         'seq':fw_primer_seq,
                         'tm':float(primer3.calcTm(fw_primer_seq, dv_conc=1.5))
@@ -155,7 +183,7 @@ def find_fw_primers(target_seq, pb_start):
                 )
     return list_fw_primers
 
-def find_rev_primers(target_seq, pb_start, pb_end):
+def find_rev_primers(target_seq, pb_start, pb_end, min_primer_len, max_primer_len):
     """
     Function finds all viable REV primers.
     REV primer criteria: 
@@ -192,32 +220,32 @@ def find_rev_primers(target_seq, pb_start, pb_end):
     """
     list_rev_primers = []
     len_pb = pb_end - pb_start
-    last_root_pos = 150 - 2*MIN_PRIMER_LEN - len_pb
+    last_root_pos = 150 - 2*min_primer_len - len_pb
     #Case 1: all primer lengths are available at these root positions
-    for i in range(last_root_pos - (MAX_PRIMER_LEN - MIN_PRIMER_LEN + 1)): 
-        for rev_len in range(MIN_PRIMER_LEN, MAX_PRIMER_LEN+1): 
+    for i in range(last_root_pos - (max_primer_len - min_primer_len + 1)): 
+        for rev_len in range(min_primer_len, max_primer_len+1): 
             rev_start = pb_end + i
             rev_end = rev_start + rev_len
             rev_primer_seq = str(target_seq[rev_start:rev_end].reverse_complement())
             if check_primer(rev_primer_seq) is True: 
                 list_rev_primers.append(
                     {
-                        'root_pos':pb_end + i,
+                        'root_pos':pb_end + i + 1,
                         'len':rev_len,
                         'seq':rev_primer_seq,
                         'tm':float(primer3.calcTm(rev_primer_seq, dv_conc=1.5))
                     }
                 )
     #Case 2: end of root positions
-    for i in range(MAX_PRIMER_LEN - MIN_PRIMER_LEN + 1):
+    for i in range(max_primer_len - min_primer_len + 1):
         rev_start = pb_end + last_root_pos - i
-        for rev_len in range(MIN_PRIMER_LEN, MIN_PRIMER_LEN + 1 + i):
+        for rev_len in range(min_primer_len, min_primer_len + 1 + i):
             rev_end = rev_start + rev_end
             rev_primer_seq = str(target_seq[rev_start:rev_end].reverse_complement())
             if check_primer(rev_primer_seq) is True: 
                 list_rev_primers.append(
                     {
-                        'root_pos':pb_end + i,
+                        'root_pos':pb_end + i + 1,
                         'len':rev_len,
                         'seq':rev_primer_seq,
                         'tm':float(primer3.calcTm(rev_primer_seq, dv_conc=1.5))
@@ -225,7 +253,7 @@ def find_rev_primers(target_seq, pb_start, pb_end):
                 )
     return list_rev_primers
 
-def blast(seq, blastdb, num_aligned): 
+def blast(seq, blastdb, blastdb_len): 
     fasta = tempfile.NamedTemporaryFile(delete=True)
     fasta.write(f">primer\n{str(seq)}".encode())
     fasta.seek(0)
@@ -235,8 +263,8 @@ def blast(seq, blastdb, num_aligned):
         "blastn-short",
         "-db",
         blastdb,
-        "-num_alignments",
-        str(num_aligned),
+        '-num_alignments',
+        blastdb_len,
         "-outfmt",
         "10 qacc sacc ssciname pident qlen length mismatch gapopen qstart qend sstart send evalue bitscore",
         "-query",
@@ -268,11 +296,11 @@ def blast(seq, blastdb, num_aligned):
     fasta.close()
     return data
 
-def generate_blast_results_db(list_primers): 
+def generate_blast_results_db(list_primers, blastdb, blastdb_len): 
     blast_results = dict()
     for primer in list_primers: 
         primer_id = f"{str(primer['root_pos'])}-{primer['len']}"
-        blast_results[primer_id] = blast(primer['seq'], BLASTDB, LEN_DB)
+        blast_results[primer_id] = blast(primer['seq'], blastdb, blastdb_len)
     return blast_results
 
 def calculate_sensitivity(blast_results, target_accessions):
@@ -382,7 +410,7 @@ def find_primer_pairs(list_fw_primers, list_rev_primers, max_tm_diff):
     list_primer_pairs = []
 
     for fw_primer in list_fw_primers: 
-        root_pos_limit = fw_primer['root_pos'] + 150 - MIN_PRIMER_LEN
+        root_pos_limit = fw_primer['root_pos'] + 150 - min_primer_len
         for rev_primer in list_rev_primers:
             if (
                 rev_primer['root_pos'] < root_pos_limit
@@ -401,98 +429,130 @@ def find_primer_pairs(list_fw_primers, list_rev_primers, max_tm_diff):
                 break
     return list_primer_pairs
 
-def main(target_seq_file_path, target_accessions, pb_start, pb_end, max_tm_diff): 
-    target_seq_file = SeqIO.read(target_seq_file_path, 'fasta')
+def main(target_seq_path, pb_start, pb_end, min_primer_len, max_primer_len, max_tm_diff, sens_spec_flag, blastdb, blastdb_len, target_accessions_path): 
+    #Get target sequence and design forward and reverse primers
+    target_seq_file = SeqIO.read(target_seq_path, 'fasta')
     target_seq = target_seq_file.seq
-    list_fw_primers = find_fw_primers(target_seq, pb_start)
-    list_rev_primers = find_rev_primers(target_seq, pb_start, pb_end)
-
-    #Generate blast results
-    print('BLASTing FW primers...')
-    list_fw_blast_results = generate_blast_results_db(list_fw_primers)
-    list_rev_blast_results = generate_blast_results_db(list_rev_primers)
+    list_fw_primers = find_fw_primers(target_seq, pb_start, min_primer_len, max_primer_len)
+    list_rev_primers = find_rev_primers(target_seq, pb_start, pb_end, min_primer_len, max_primer_len)
 
     #Generate all legal combination of primer pairs
     list_primer_pairs = find_primer_pairs(list_fw_primers, list_rev_primers, max_tm_diff)
 
-    #Calculate sensitivity and specificity for each primer pair
-    for primer_pair in list_primer_pairs: 
-        fw_id = f"{str(primer_pair['fw']['root_pos'])}-{primer_pair['fw']['len']}"
-        rev_id = f"{str(primer_pair['rev']['root_pos'])}-{primer_pair['rev']['len']}"
-        fw_blast_result = list_fw_blast_results[fw_id]
-        rev_blast_result = list_rev_blast_results[rev_id]
-        primer_pair['sensitivity'] = calculate_primer_pair_sensitivity(fw_blast_result, rev_blast_result, target_accessions)
-        primer_pair['specificity'] = calculate_primer_pair_specificity(fw_blast_result, rev_blast_result, target_accessions, LEN_DB)
-        primer_pair['score'] = primer_pair['sensitivity'] + primer_pair['specificity']
+    if sens_spec_flag is False: 
+        #Get target accessions
+        target_accessions = []
+        input_file = open(target_accessions_path, 'r')
+        for line in input_file: 
+            target_accessions.append(line.strip('\n'))
+        input_file.close()
 
-    #Sort
-    list_primer_pairs.sort(key=lambda x: (x['score'], x['average_tm'], x['tm_diff']), reverse=True)
+        #Generate blast results
+        print('BLASTing primers...')
+        list_fw_blast_results = generate_blast_results_db(list_fw_primers, blastdb, blastdb_len)
+        list_rev_blast_results = generate_blast_results_db(list_rev_primers, blastdb, blastdb_len)
 
-    #Outputs: 
-    #1) blast_csv for each blast result for each primer
-    #2) file listing all of the primer pairs
+        #Calculate sensitivity and specificity for each primer pair
+        for primer_pair in list_primer_pairs: 
+            fw_id = f"{str(primer_pair['fw']['root_pos'])}-{primer_pair['fw']['len']}"
+            rev_id = f"{str(primer_pair['rev']['root_pos'])}-{primer_pair['rev']['len']}"
+            fw_blast_result = list_fw_blast_results[fw_id]
+            rev_blast_result = list_rev_blast_results[rev_id]
+            primer_pair['sensitivity'] = calculate_primer_pair_sensitivity(fw_blast_result, rev_blast_result, target_accessions)
+            primer_pair['specificity'] = calculate_primer_pair_specificity(fw_blast_result, rev_blast_result, target_accessions, blastdb_len)
+            primer_pair['score'] = primer_pair['sensitivity'] + primer_pair['specificity']
 
-    blast_folder_path = target_seq_file_path.with_name('primer_blast')
-    blast_folder_path.mkdir()
-    for blast_result_key in list_fw_blast_results: 
-        blast_output_path = blast_folder_path.joinpath(f"{blast_result_key}_fw.csv")
-        blast_output_file = open(blast_output_path, 'w')
-        list_fw_blast_results[blast_result_key].to_csv(blast_output_file)
-        blast_output_file.close()
-    for blast_result_key in list_rev_blast_results: 
-        blast_output_path = blast_folder_path.joinpath(f"{blast_result_key}_rev.csv")
-        blast_output_file = open(blast_output_path, 'w')
-        list_rev_blast_results[blast_result_key].to_csv(blast_output_file)
-        blast_output_file.close()
+        #Sort
+        list_primer_pairs.sort(key=lambda x: (x['score'], x['average_tm'], x['tm_diff']), reverse=True)
 
-    #CSV primer pair output
-    primer_pair_data = []
-    for primer_pair in list_primer_pairs: 
-        primer_pair_data.append(
+        #Outputs: 
+        #1) blast_csv for each blast result for each primer
+        #2) file listing all of the primer pairs
+        blast_folder_path = target_seq_path.with_name('primer_blast')
+        blast_folder_path.mkdir()
+        for blast_result_key in list_fw_blast_results: 
+            blast_output_path = blast_folder_path.joinpath(f"{blast_result_key}_fw.csv")
+            blast_output_file = open(blast_output_path, 'w')
+            list_fw_blast_results[blast_result_key].to_csv(blast_output_file)
+            blast_output_file.close()
+        for blast_result_key in list_rev_blast_results: 
+            blast_output_path = blast_folder_path.joinpath(f"{blast_result_key}_rev.csv")
+            blast_output_file = open(blast_output_path, 'w')
+            list_rev_blast_results[blast_result_key].to_csv(blast_output_file)
+            blast_output_file.close()
+
+        #CSV primer pair output
+        primer_pair_data = []
+        for primer_pair in list_primer_pairs: 
+            primer_pair_data.append(
+                (
+                    primer_pair['fw']['root_pos'],
+                    primer_pair['fw']['seq'],
+                    primer_pair['fw']['len'],
+                    primer_pair['fw']['tm'],
+                    primer_pair['rev']['root_pos'],
+                    primer_pair['rev']['seq'],
+                    primer_pair['rev']['len'],
+                    primer_pair['rev']['tm'],
+                    primer_pair['sensitivity'],
+                    primer_pair['specificity'],
+                    primer_pair['score'],
+                )
+            )
+        csv_output_path = target_seq_path.with_name('primer_pairs.csv')
+        csvfile = open(csv_output_path, 'w', newline='')
+        csvwriter = csv.writer(csvfile)
+        csvwriter.writerow(
             (
-                primer_pair['fw']['root_pos'],
-                primer_pair['fw']['seq'],
-                primer_pair['fw']['len'],
-                primer_pair['fw']['tm'],
-                primer_pair['rev']['root_pos'],
-                primer_pair['rev']['seq'],
-                primer_pair['rev']['len'],
-                primer_pair['rev']['tm'],
-                primer_pair['sensitivity'],
-                primer_pair['specificity'],
-                primer_pair['score'],
+                'fw_root',
+                'fw_len',
+                'fw_seq',
+                'fw_tm',
+                'rev_root',
+                'rev_len',
+                'rev_seq',
+                'rev_tm',
+                'sens',
+                'spec',
+                'score'
             )
         )
-    csv_output_path = target_seq_file_path.with_name('primer_pairs.csv')
-    csvfile = open(csv_output_path, 'w', newline='')
-    csvwriter = csv.writer(csvfile)
-    csvwriter.writerow(
-        (
-            'fw_root',
-            'fw_len',
-            'fw_seq',
-            'fw_tm',
-            'rev_root',
-            'rev_len',
-            'rev_seq',
-            'rev_tm',
-            'sens',
-            'spec',
-            'score'
+        csvwriter.writerows(primer_pair_data)
+        csvfile.close()
+    else: 
+        #CSV primer pair output
+        primer_pair_data = []
+        for primer_pair in list_primer_pairs: 
+            primer_pair_data.append(
+                (
+                    primer_pair['fw']['root_pos'],
+                    primer_pair['fw']['seq'],
+                    primer_pair['fw']['len'],
+                    primer_pair['fw']['tm'],
+                    primer_pair['rev']['root_pos'],
+                    primer_pair['rev']['seq'],
+                    primer_pair['rev']['len'],
+                    primer_pair['rev']['tm'],
+                )
+            )
+        csv_output_path = target_seq_path.with_name('primer_pairs.csv')
+        csvfile = open(csv_output_path, 'w', newline='')
+        csvwriter = csv.writer(csvfile)
+        csvwriter.writerow(
+            (
+                'fw_root',
+                'fw_len',
+                'fw_seq',
+                'fw_tm',
+                'rev_root',
+                'rev_len',
+                'rev_seq',
+                'rev_tm',
+            )
         )
-    )
-    csvwriter.writerows(primer_pair_data)
-    csvfile.close()
+        csvwriter.writerows(primer_pair_data)
+        csvfile.close()
 
 if __name__ == '__main__':
-    #target_seq_file_path = 'ssu_ppenetrans.fasta'
-    #pb_start = 670
-    #pb_end = 689
-    #input_file = open('list_accessions.txt', 'r')
-    target_seq_file_path, target_accessions_path, pb_start, pb_end, tm_diff = parse_args()
-    target_accessions = []
-    input_file = open(target_accessions_path, 'r')
-    for line in input_file: 
-        target_accessions.append(line.strip('\n'))
-    input_file.close()
-    main(target_seq_file_path, target_accessions, pb_start, pb_end, tm_diff)
+    target_seq_path, pb_start, pb_end, min_primer_len, max_primer_len, max_tm_diff, sens_spec_flag, blastdb, blastdb_len, target_accessions_path = parse_args()
+    main(target_seq_path, pb_start, pb_end, min_primer_len, max_primer_len, max_tm_diff, sens_spec_flag, blastdb, blastdb_len, target_accessions_path)

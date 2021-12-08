@@ -264,7 +264,7 @@ def blast(seq, blastdb, blastdb_len):
         "-db",
         blastdb,
         '-num_alignments',
-        blastdb_len,
+        str(blastdb_len),
         "-outfmt",
         "10 qacc sacc ssciname pident qlen length mismatch gapopen qstart qend sstart send evalue bitscore",
         "-query",

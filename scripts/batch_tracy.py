@@ -36,14 +36,14 @@ def parse_args():
     )
     parser.add_argument('-p',
         dest='peak_ratio',
-        default='0.5',
+        default='0.8',
         action='store',
         type=str,
         help='Peak ratio to pass to tracy. 0 to 1.'
     )
     parser.add_argument('-t',
         dest='trim',
-        default='2',
+        default='3',
         action='store',
         type=str,
         help='Trimming stringency to pass to Tracy. 1 to 9. 1 is most stringent.'

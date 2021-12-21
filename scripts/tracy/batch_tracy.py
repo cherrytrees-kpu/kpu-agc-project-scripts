@@ -27,7 +27,7 @@ def parse_args():
     parser.add_argument('reference_file_path', 
         action='store', 
         type=pathlib.Path,
-        help = 'Path to the reference sequence, fasta format'
+        help = 'Path to the reference sequence/genome'
     )
     parser.add_argument('ab1_path',
         action='store', 
@@ -53,8 +53,8 @@ def parse_args():
     return (args.reference_file_path, args.ab1_path, args.peak_ratio, args.trim)
 
 def main(reference_file_path, ab1_path, peak_ratio, trim): 
-    gene_name = reference_file_path.stem.split('.')[0]
-    for ab1_file_path in ab1_path.glob('*.ab1'): 
+    for ab1_file_path in ab1_path.glob('*.ab1'):
+        gene_name = ab1_file_path.stem.split('_')[1] 
         cow_name = ab1_file_path.stem.split('_')[2]
         run_tracy(gene_name, cow_name, reference_file_path, ab1_file_path, peak_ratio, trim)
 

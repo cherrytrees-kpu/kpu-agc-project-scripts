@@ -39,10 +39,16 @@ def parse_args():
         action='store',
         help='Path to .json files'
     )
+    parser.add_argument(
+        'tag',
+        type=str,
+        action='store',
+        help='tag for the exported files'
+    )
     args = parser.parse_args()
-    return args.json_path
+    return (args.json_path, args.tag)
 
-def main(json_path): 
+def main(json_path, tag): 
     #Get all json files in the dir
     all_seq_data = dict()
     if json_path.is_dir() is True: 
@@ -78,9 +84,9 @@ def main(json_path):
         'basepos',
         'signalpos',
     ]
-    output_csv(metadata, 'metadata', json_path, metadata_header)
-    output_csv(variants, 'variants', json_path, variants_header)
+    output_csv(metadata, f'{tag}_metadata', json_path, metadata_header)
+    output_csv(variants, f'{tag}_variants', json_path, variants_header)
 
 if __name__ == '__main__': 
-    json_path = parse_args()
-    main(json_path)
+    json_path, tag = parse_args()
+    main(json_path, tag)

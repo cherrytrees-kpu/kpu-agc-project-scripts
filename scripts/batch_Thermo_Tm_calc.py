@@ -121,8 +121,8 @@ class primer:
         Get the dS and dH from primer sequence using different methods.
         """
 
-        total_dH = inits['dHini']
-        total_dS = inits['dSini']
+        total_dH = inits['dH_ini']
+        total_dS = inits['dS_ini']
 
         for i, s in enumerate(self.seq):
             if i < len(self.seq)-1:
@@ -156,7 +156,7 @@ class primer:
         else:
             return (sum([Tm_simple_params_long[nucleotide] * self.nucleotide_count()[nucleotide] for nucleotide in ['A', 'T', 'C', 'G']])- 41 *16.4)/len(self.seq)
 
-    def TmAll97(self):
+    def Tm_All97(self):
         """
         Get the Tm using Allawi-SantaLucia (1997) method.
         """
@@ -183,23 +183,23 @@ class primer:
                 'T':{'dS':-22.4,'dH':-8400.0},
                 'G':{'dS':-19.9,'dH':-8000.0}}}
 
-        dSini = 0
-        dHini = 0
+        dS_ini = 0
+        dH_ini = 0
 
         if self.seq.endswith(('A', 'T')):
-            dSini += 4.1
-            dHini += 2300
+            dS_ini += 4.1
+            dH_ini += 2300
         if self.seq.endswith(('C', 'G')):
-            dSini -= 2.8
-            dHini += 100
+            dS_ini -= 2.8
+            dH_ini += 100
         if self.seq.startswith(('A', 'T')):
-            dSini += 4.1
-            dHini += 2300
+            dS_ini += 4.1
+            dH_ini += 2300
         if self.seq.startswith(('C', 'G')):
-            dSini -= 2.8
-            dHini += 100
+            dS_ini -= 2.8
+            dH_ini += 100
 
-        thermodyndata = self.sumObjectSymbolNNValues(Tm_All97_data, {'dHini': dHini, 'dSini': dSini})
+        thermodyndata = self.sumObjectSymbolNNValues(Tm_All97_data, {'dH_ini': dH_ini, 'dS_ini': dS_ini})
         res = (thermodyndata['dH'] / (1.9872 * math.log(self.primer_conc / 4.0) + thermodyndata['dS'])) + (16.6 * math.log(0.215273974689348) / math.log(10)) - 273.15
 
         res_adj = (res+3)*0.9376798568+4.5185404499
@@ -211,7 +211,7 @@ class primer:
 
         return res_adj
 
-    def TmBreslauer(self):
+    def Tm_Breslauer(self):
         """
         Get the Tm using Breslauer method.
         """
@@ -238,7 +238,7 @@ class primer:
                 'G':{'dH':-11900,'dS':-27.8},
                 'C':{'dH':-11000,'dS':-26.6}}}
         
-        thermodyndata = self.sumObjectSymbolNNValues(Tm_Breslauer_data, {'dHini': -3400, 'dSini': -12.4})
+        thermodyndata = self.sumObjectSymbolNNValues(Tm_Breslauer_data, {'dH_ini': -3400, 'dS_ini': -12.4})
         res = (thermodyndata['dH'] / (1.9872 * math.log(self.primer_conc / 160) + thermodyndata['dS'])) + (16.6 * math.log(self.salt_conc) / math.log(10)) - 273.15
         
         if res < 0:
@@ -247,7 +247,7 @@ class primer:
             res = 95
         return res
 
-    def TmTaq(self):
+    def Tm_Taq(self):
         """
         Get the Tm using maybe the SantaLucia method (1996)?
         """
@@ -274,7 +274,7 @@ class primer:
                 'T':{'dS':-23.0,'dH':-8600.0},
                 'G':{'dS':-15.6,'dH':-6700.0}}}
 
-        thermodyndata = self.sumObjectSymbolNNValues(Tm_San96_data, {'dHini': 0.0, 'dSini': -0.0})
+        thermodyndata = self.sumObjectSymbolNNValues(Tm_San96_data, {'dH_ini': 0.0, 'dS_ini': -0.0})
         NaEquiv = 0.15527397
         nucleotide_F_term  = -15.894952
         etropyCorrection =  0.368 * (len(self.seq) - 1.0) * math.log(NaEquiv); 
@@ -333,7 +333,7 @@ def main() -> None:
             primers_list.append(primer_info)
     
     pd.DataFrame(primers_list,
-        columns=['Primer 1', 'seq', 'Tm', 'Primer 2', 'seq', 'Tm', 'Ta', 'notes']).to_csv(
+        columns=['Primer 1', 'Primer 1 Sequence', 'Tm', 'Primer 2', 'Primer 2 Sequence', 'Tm', 'Ta', 'notes']).to_csv(
             file_arg.parent.joinpath(file_arg.stem + '.csv'), 
             index=None)
     
@@ -345,10 +345,10 @@ def calculate_Tm(primer, pol_arg):
     """
 
     if pol_arg in ['SuperFi', 'Phusion']:
-        Tm = primer.TmAll97()
+        Tm = primer.Tm_All97()
 
     elif pol_arg in ['DreamTaq']:
-        Tm = primer.TmTaq()
+        Tm = primer.Tm_Taq()
     
     return Tm
             
@@ -357,29 +357,26 @@ def calculate_Ta(primer_1, primer_2, pol_arg):
     Function will calculate annealing temperature (Ta) based on polymerase.
     """
 
-    note = None
-
     if pol_arg in ['SuperFi', 'Phusion']:
-        Ta = min(primer_1.TmAll97(), primer_2.TmAll97()) if ((min(len(primer_1.seq), len(primer_2.seq)) < 21) and (min(primer_1.TmAll97(), primer_2.TmAll97()) < 72)) else min(min(primer_1.TmAll97(), primer_2.TmAll97()), 72)
+        Ta = min(primer_1.Tm_All97(), primer_2.Tm_All97()) if ((min(len(primer_1.seq), len(primer_2.seq)) < 21) and (min(primer_1.Tm_All97(), primer_2.Tm_All97()) < 72)) else min(min(primer_1.Tm_All97(), primer_2.Tm_All97()), 72)
     
     elif pol_arg in ['DreamTaq']:
-        Ta = min((max(primer_1.TmTaq(), primer_2.TmTaq())), 72) if (min(primer_1.TmTaq(), primer_2.TmTaq()) < 72) else 72
+        Ta = min((max(primer_1.Tm_Taq(), primer_2.Tm_Taq())), 72) if (min(primer_1.Tm_Taq(), primer_2.Tm_Taq()) < 72) else 72
 
     # notes to output in case of errors, maybe?
     # --------------------------------------------------
-    notes = ''
+    note = ''
 
     if abs(calculate_Tm(primer_1, pol_arg) - calculate_Tm(primer_2, pol_arg)) >= 5:
-        notes += "Tm difference of more than 5C or greater is not recommended. "
+        note += "Tm difference of more than 5C or greater is not recommended. "
     if (Ta < 45):
-        notes += "Annealing temperature lower than 45C is not recommended. "
+        note += "Annealing temperature lower than 45C is not recommended. "
     if (len(primer_1.seq) < 7) or (len(primer_2.seq) < 7):
-        notes += "Both primers need to be longer than 7 nt. "
+        note += "Both primers need to be longer than 7 nt. "
     if ((calculate_Tm(primer_1, pol_arg) > 69) and (calculate_Tm(primer_1, pol_arg) < 72)) and ((calculate_Tm(primer_2, pol_arg) > 69) and (calculate_Tm(primer_2, pol_arg) < 72)):
-        notes += "A 2-step protocol (combined annealing/extension) is recommended when primer Tm values are higher than 69C, using 72C for annealing step. "
+        note += "A 2-step protocol (combined annealing/extension) is recommended when primer Tm values are higher than 69C, using 72C for annealing step. "
     if (Ta >= 72):
-        notes += "Annealing temperature should not exceed 72C. "
-
+        note += "Annealing temperature should not exceed 72C. "
     return Ta, note
 
 def print_runtime(runtime, action):

@@ -26,7 +26,7 @@ def parse_args():
         action='store',
         type=int,
         dest='min_pup_score',
-        default=15,
+        default=10,
         help='Minimum pup score for the sequence to be considered usable'
     )
     parser.add_argument(

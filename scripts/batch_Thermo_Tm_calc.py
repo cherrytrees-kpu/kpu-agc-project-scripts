@@ -38,7 +38,7 @@ def get_args() -> Args:
                         help="Primer concentration (uM)",
                         metavar='conc',
                         type=float,
-                        default=5)
+                        default=0.5)
 
     parser.add_argument('-p',
                         '--pol',
@@ -320,13 +320,13 @@ def main() -> None:
             primer_info = [
                 primer_1.name,
                 primer_1.seq, 
-                round(calculate_Tm(primer_1, pol_arg),2), 
+                round(calculate_Tm(primer_1, pol_arg), 1), 
                 
                 primer_2.name, 
                 primer_2.seq, 
-                round(calculate_Tm(primer_2, pol_arg),2),
+                round(calculate_Tm(primer_2, pol_arg), 1),
 
-                round(Ta, 2),
+                round(Ta, 1),
                 note
                 ]
 

@@ -191,40 +191,40 @@ def parse_args():
         type=int,
         help='End coordinate of target region, 1-based coordinates'
     )
-    parser.add_argument('-min_primer_len',
+    parser.add_argument('--min_primer_len',
         action='store',
         type=int, 
         default=17,
         dest='min_primer_len',
-        help='Minimum primer length'
+        help='Minimum primer length (default=17)'
     )
-    parser.add_argument('-max_primer_len',
+    parser.add_argument('--max_primer_len',
         action='store',
         type=int, 
         default=22,
         dest='max_primer_len',
-        help='Maximum primer length'
+        help='Maximum primer length (default=22)'
     )
-    parser.add_argument('-no_sens_spec_check',
+    parser.add_argument('--no_sens_spec_check',
         action='store_true',
         dest='sens_spec_flag',
         help='Flag to not check the putative probes for their specificity and sensitivity'
     )
     #Arguments for specificity checking
-    parser.add_argument('-blastdb',
+    parser.add_argument('--blastdb',
         action='store',
         type=str,
         dest='blastdb',
         default='',
         help='Name of blastdb'
     )
-    parser.add_argument('-blastdb_len',
+    parser.add_argument('--blastdb_len',
         action='store',
         type=int,
         dest='blastdb_len',
         help='Length of blastdb'
     )
-    parser.add_argument('-target_accessions', 
+    parser.add_argument('--target_accessions', 
         metavar='target_accessions', 
         action='store', 
         type=pathlib.Path,

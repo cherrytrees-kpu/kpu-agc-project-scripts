@@ -118,3 +118,6 @@ def main():
     genus_data.output_species_fasta()
     genus_data.output_metadata()
     genus_data.generate_species_alignment()
+
+if __name__ == '__main__': 
+    main()

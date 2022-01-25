@@ -1,4 +1,4 @@
-from Bio import SeqIO
+from Bio import SeqIO, AlignIO
 import argparse
 import pathlib
 import csv
@@ -91,6 +91,11 @@ class genbankHandler():
             output_file.write(decoded)
             output_file.close()
             self.alignment_paths.append(pathlib.Path(aligned_path))
+    def generate_consensus_sequence(self): 
+        def _get_consensus(): 
+            pass
+        for alignment_path in self.alignment_paths: 
+            alignment = AlignIO.parse(alignment_path, 'fasta')
 
 
 def parse_args(): 

@@ -196,7 +196,7 @@ class genbankHandler():
                     consensus_sequence.append(max_basecalls[0])
                 else: 
                     consensus_sequence.append('n')
-            return str(Seq.Seq(''.join(consensus_sequence)).ungap())
+            return str(Seq.Seq(''.join(consensus_sequence)).ungap(gap='-'))
         def create_fasta(cons_seqs, output_path): 
             output_file = open(output_path, 'w')
             for key in cons_seqs: 

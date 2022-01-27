@@ -1,4 +1,4 @@
-from Bio import SeqIO, AlignIO
+from Bio import SeqIO, AlignIO, Seq
 import argparse
 import pathlib
 import csv
@@ -10,8 +10,10 @@ class genbankHandler():
         self.path = pathlib.Path(gb_path)
         self.fasta_paths = []
         self.alignment_paths = []
+        self.consensus_path = None
         self.gb = dict()
         self.species_keys = self.gb.keys()
+        self.consensus_sequences = None
         self._split_gb_by_species()
     def _split_gb_by_species(self):
         for gb_data in self.data: 
@@ -91,12 +93,148 @@ class genbankHandler():
             output_file.write(decoded)
             output_file.close()
             self.alignment_paths.append(pathlib.Path(aligned_path))
-    def generate_consensus_sequence(self): 
-        def _get_consensus(): 
-            pass
+    def generate_consensus(self): 
+        def get_seq_position_info(alignment): 
+            """
+            Get information for each position of the alignment.
+            Output is in list format, with each index corresponding to the 0-based position
+            of the alignment. 
+            Each index contains dictionary with following information: 
+            pos - position number
+            accessions - the accessions represented at that position
+            bases - base calls in corresponding order of accessions
+            seqs_rep - number of accessions represented at that position
+            p_seq_rep - percentage of accessions represented at that position
+            """
+            def get_sequence_regions(alignment): 
+                """
+                Identify the regions that each accession spans on the alignment.
+                Algorithm: 
+                1) From beginning of sequence, keep going until position is not '-',
+                then record the position as the start of the region
+                2) From the end of the sequence, go in reverse until position is not '-',
+                then record the position as the end of the region
+                3) Return tuple --> (accession, start, end)
+                """
+                def get_sequence_region(accession): 
+                    #Variables
+                    f_start = False
+                    f_end = False
+                    start = 0
+                    end = 0
+                    #Data from SeqRecord object 
+                    sequence = accession.seq
+                    acc = (accession.id).split('.')[0]
+                    #From beginning of the sequence, keep going until position is not '-'
+                    i = 0
+                    while (f_start is False): 
+                        if sequence[i] != '-': 
+                            start = i
+                            f_start = True
+                        i = i + 1
+                    #From ending of the sequence, keep going until position is not '-'
+                    i = -1
+                    while (f_end is False): 
+                        if sequence[i] != '-':
+                            end = i%len(sequence) #Translate negative index to positive index
+                            f_end = True
+                        i = i - 1
+                    return ((acc, start, end))
+                sequence_regions = []
+                for accession in alignment: 
+                    sequence_regions.append(get_sequence_region(accession))
+                return sequence_regions
+            def get_contributing_seqs(position, list_seq_region):
+                """
+                Given a position and the list of sequence regions for each accession,
+                identify which accessions are represented
+                """
+                list_accession = []
+                list_indices = []
+                for sequence in list_seq_region:
+                    if (position >= sequence[1]) and (position <= sequence[2]): 
+                        list_accession.append(sequence[0])
+                        list_indices.append(list_seq_region.index(sequence))
+                return list_accession, list_indices
+            list_seq_position_info = []
+            #Get sequence regions
+            list_seq_regions = get_sequence_regions(alignment)
+            num_accessions = len(alignment)
+            for position in range(alignment.get_alignment_length()):
+                list_accessions, list_indices = get_contributing_seqs(position, list_seq_regions)
+                list_bases = []
+                #Append the basecalls of every contributing sequence at specified position
+                for index in list_indices: 
+                    list_bases.append(alignment[index].seq[position])
+                position_info = {
+                    'pos':position,
+                    'accessions':tuple(list_accessions),
+                    'bases':tuple(list_bases),
+                    'seqs_rep':len(list_accessions),
+                    'p_seq_rep':len(list_accessions)/num_accessions,
+                }
+                list_seq_position_info.append(position_info)
+            return list_seq_position_info
+        def get_consensus_seq(seq_info): 
+            """
+            Determine the consensus sequence of an alignment, and create position matrix
+            Definition of consensus: most common base represented at that position. 
+            """
+            consensus_sequence = []
+            position_matrix = []
+            for position in seq_info: 
+                #Ignore any ambiguous basecalls - accept A, T, C, G, and 'gap'
+                base_counts = {
+                    'a':position['bases'].count('a'),
+                    't':position['bases'].count('t'),
+                    'c':position['bases'].count('c'),
+                    'g':position['bases'].count('g'),
+                    '-':position['bases'].count('-'),
+                }
+                #print(base_counts)
+                max_basecalls = [key for key, count in base_counts.items() if count == max(base_counts.values())]
+                if len(max_basecalls) == 1: 
+                    consensus_sequence.append(max_basecalls[0])
+                else: 
+                    consensus_sequence.append('n')
+            return ''.join(consensus_sequence)
+        def create_fasta(cons_seqs, output_path): 
+            output_file = open(output_path, 'w')
+            for key in cons_seqs: 
+                output_file.write(f'>{key}\n')
+                output_file.write(cons_seqs[key])
+                output_file.write('\n')
+            output_file.close()
+        consensus_seqs = dict()
         for alignment_path in self.alignment_paths: 
             alignment = AlignIO.parse(alignment_path, 'fasta')
-
+            alignment_id = alignment_path.name.split('_data')[0]
+            seq_info = get_seq_position_info(alignment)
+            consensus_seq = get_consensus_seq(seq_info)
+            consensus_seqs[alignment_id] = consensus_seq
+        self.consensus_sequences = consensus_seqs
+        #Output
+        self.consensus_path = self.path.with_name(self.path.stem + '_consensus.fasta')
+        create_fasta(self.consensus_sequences, self.consensus_path)
+    def generate_consensus_alignment(self): 
+        consensus_alignment_path = self.path.with_name(self.path.stem + '_consensus_aligned.fasta')
+        args =[
+                'mafft',
+                '--auto',
+                str(self.consensus_path), 
+            ]
+        result = subprocess.run(args, capture_output=True)
+        decoded = result.stdout.decode('utf-8')
+        output_file = open(consensus_alignment_path, 'w')
+        output_file.write(decoded)
+        output_file.close()
+def create_fasta(cons_seqs, output_path): 
+    output_file = open(output_path, 'w')
+    for key in cons_seqs: 
+        output_file.write(f'>{key}\n')
+        output_file.write(cons_seqs[key])
+        output_file.write('\n')
+    output_file.close()
 
 def parse_args(): 
     parser = argparse.ArgumentParser('Analyze and align multiple sequences for genus-level analysis')
@@ -117,12 +255,14 @@ def main():
     3) Align .fasta files for each species
 
     """
-    genus_gb = parse_args()
-    genus_data = genbankHandler(genus_gb)
+    genus_gb_path = parse_args()
+    genus_data = genbankHandler(genus_gb_path)
     genus_data.output_species_gb()
     genus_data.output_species_fasta()
     genus_data.output_metadata()
     genus_data.generate_species_alignment()
+    genus_data.generate_consensus()
+    genus_data.generate_consensus_alignment()
 
 if __name__ == '__main__': 
     main()

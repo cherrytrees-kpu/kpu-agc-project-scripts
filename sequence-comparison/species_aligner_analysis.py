@@ -228,13 +228,6 @@ class genbankHandler():
         output_file = open(consensus_alignment_path, 'w')
         output_file.write(decoded)
         output_file.close()
-def create_fasta(cons_seqs, output_path): 
-    output_file = open(output_path, 'w')
-    for key in cons_seqs: 
-        output_file.write(f'>{key}\n')
-        output_file.write(cons_seqs[key])
-        output_file.write('\n')
-    output_file.close()
 
 def parse_args(): 
     parser = argparse.ArgumentParser('Analyze and align multiple sequences for genus-level analysis')

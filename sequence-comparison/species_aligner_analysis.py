@@ -207,7 +207,7 @@ class genbankHandler():
             output_file.close()
         consensus_seqs = dict()
         for alignment_path in self.alignment_paths: 
-            alignment = AlignIO.parse(alignment_path, 'fasta')
+            alignment = AlignIO.read(alignment_path, 'fasta')
             alignment_id = alignment_path.name.split('_data')[0]
             seq_info = get_seq_position_info(alignment)
             consensus_seq = get_consensus_seq(seq_info)

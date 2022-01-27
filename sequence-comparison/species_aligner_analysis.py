@@ -181,7 +181,6 @@ class genbankHandler():
             Definition of consensus: most common base represented at that position. 
             """
             consensus_sequence = []
-            position_matrix = []
             for position in seq_info: 
                 #Ignore any ambiguous basecalls - accept A, T, C, G, and 'gap'
                 base_counts = {
@@ -197,7 +196,7 @@ class genbankHandler():
                     consensus_sequence.append(max_basecalls[0])
                 else: 
                     consensus_sequence.append('n')
-            return ''.join(consensus_sequence)
+            return str(Seq.Seq(''.join(consensus_sequence)).ungap())
         def create_fasta(cons_seqs, output_path): 
             output_file = open(output_path, 'w')
             for key in cons_seqs: 

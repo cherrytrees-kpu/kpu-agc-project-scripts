@@ -33,7 +33,7 @@ class genbankHandler():
             SeqIO.write(self.gb[organism], species_path, 'gb')
     def output_species_fasta(self): 
         for organism in self.gb.keys(): 
-            species_path = self.path.with_name(f'{organism}.fasta')
+            species_path = self.path.with_name(f'{organism.replace(" ","-")}.fasta')
             SeqIO.write(self.gb[organism], species_path, 'fasta')
             self.fasta_paths.append(pathlib.Path(species_path))
     def output_metadata(self): 

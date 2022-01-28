@@ -29,7 +29,7 @@ class genbankHandler():
         return len(self.gb.keys()) 
     def output_species_gb(self): 
         for organism in self.gb.keys(): 
-            species_path = self.path.with_name(f'{organism}_data.gb')
+            species_path = self.path.with_name(f'{organism.replace(" ","-")}_data.gb')
             SeqIO.write(self.gb[organism], species_path, 'gb')
     def output_species_fasta(self): 
         for organism in self.gb.keys(): 
@@ -39,7 +39,7 @@ class genbankHandler():
     def output_metadata(self): 
         #Loop through each organism
         for organism in self.gb.keys(): 
-            species_path = self.path.with_name(f'{organism}_metadata.csv')
+            species_path = self.path.with_name(f'{organism.replace(" ","-")}_metadata.csv')
             all_gb_data = []
             #Loop through each Genbank file
             for gb in self.gb[organism]: 
@@ -207,7 +207,7 @@ class genbankHandler():
         consensus_seqs = dict()
         for alignment_path in self.alignment_paths: 
             alignment = AlignIO.read(alignment_path, 'fasta')
-            alignment_id = alignment_path.name.split('_data')[0]
+            alignment_id = alignment_path.name.split('_')[0]
             seq_info = get_seq_position_info(alignment)
             consensus_seq = get_consensus_seq(seq_info)
             consensus_seqs[alignment_id] = consensus_seq

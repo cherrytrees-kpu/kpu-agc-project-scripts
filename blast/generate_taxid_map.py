@@ -10,13 +10,16 @@ def parse_args():
     parser.add_argument('f', 
         metavar='input', 
         action='store', 
-        type=str, 
+        type=pathlib.Path, 
         help = 'name of input .gb file'
     )
     args = parser.parse_args()
-    return pathlib.Path(args.f)
+    return args.f
 
-def main(genbank_filepath):
+def main():
+    genbank_filepath = parse_args()
+    num_seq = 0
+    num_unidentified = 0
     #Open Genbank file
     output_path = genbank_filepath.with_name(genbank_filepath.stem + '_taxid_map.txt')
     f = open(output_path,'w')
@@ -29,10 +32,13 @@ def main(genbank_filepath):
                     taxid = db_xref.split(':')[1]
             #taxid = gb.features[0].qualifiers['db_xref'][0].split(':')[1]
             f.write("{} {}\n".format(annotations, taxid))
+            num_seq = num_seq + 1
         except:
+            num_unidentified = num_unidentified + 1
             pass
     f.close()
+    print(f'Total number of sequences: {str(num_seq)}')
+    print(f'Total number of sequences with no species: {str(num_unidentified)}')
 
 if __name__ == "__main__":
-    genbank_path = parse_args()
-    main(genbank_path)
+    main()

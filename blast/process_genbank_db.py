@@ -79,10 +79,18 @@ def _retrieve_metadata(gb_entry):
     return metadata
 def parse_args(): 
     parser = argparse.ArgumentParser(description='Generate .fasta and metadata files from a GenBank file.')
-    parser.add_argument('d', metavar='input', type=str, nargs=1, help = 'path to a GenBank file')
+    parser.add_argument(
+        'd', 
+        metavar='input', 
+        type=pathlib.Path, 
+        help = 'path to a GenBank file'
+    )
     args = parser.parse_args()
-    return pathlib.Path(args.d[0])
-def main(path):
+    return args.d
+def main():
+
+    path = parse_args()
+
     if path.is_file() is True:
         #Continue program
         data = SeqIO.parse(path, 'gb')
@@ -127,5 +135,4 @@ def main(path):
         print("Not a GenBank file.") 
         
 if __name__ == "__main__": 
-    args = parse_args()
-    main(args)
+    main()

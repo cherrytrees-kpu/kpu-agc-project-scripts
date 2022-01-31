@@ -101,10 +101,10 @@ def get_alignment_summary(seq_info):
     for position in seq_info: 
         #Ignore any ambiguous basecalls - accept A, T, C, G, and 'gap'
         base_counts = {
-            'a':position['bases'].count('a'),
-            't':position['bases'].count('t'),
-            'c':position['bases'].count('c'),
-            'g':position['bases'].count('g'),
+            'a':position['bases'].count('a')+position['bases'].count('A'),
+            't':position['bases'].count('t')+position['bases'].count('T'),
+            'c':position['bases'].count('c')+position['bases'].count('C'),
+            'g':position['bases'].count('g')+position['bases'].count('G'),
             '-':position['bases'].count('-'),
         }
         #print(base_counts)

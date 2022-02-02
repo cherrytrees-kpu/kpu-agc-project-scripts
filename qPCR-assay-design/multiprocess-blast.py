@@ -11,7 +11,7 @@ import multiprocessing
 class multi_blast(): 
     def __init__(self, query_seq): 
         self.query = query_seq
-    def blast(seq, blastdb, blastdb_len): 
+    def blast(self, seq, blastdb, blastdb_len): 
         #Create a temporary file containing the sequence to pass as an input to BLAST
         #Temporary file will be deleted after the program finishes running
         #Sequence is encoded to utf-8, and we move to start of temporary file

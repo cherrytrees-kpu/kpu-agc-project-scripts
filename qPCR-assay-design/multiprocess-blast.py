@@ -8,11 +8,7 @@ import pandas
 import csv
 import multiprocessing
 
-class multi_blast(): 
-    def __init__(self, query_seq): 
-        self.query = query_seq
-    def run(self): 
-        def blast(seq, blastdb, blastdb_len): 
+def blast(seq, blastdb, blastdb_len): 
             #Create a temporary file containing the sequence to pass as an input to BLAST
             #Temporary file will be deleted after the program finishes running
             #Sequence is encoded to utf-8, and we move to start of temporary file
@@ -59,6 +55,11 @@ class multi_blast():
             data = pandas.read_csv(output, sep=',', header=None, names=headers)
             fasta.close()
             return data
+
+class multi_blast(): 
+    def __init__(self, query_seq): 
+        self.query = query_seq
+    def run(self): 
         #Split the job
         args = []
         for i in self.query: 

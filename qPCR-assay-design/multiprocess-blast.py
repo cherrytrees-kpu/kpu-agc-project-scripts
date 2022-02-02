@@ -33,7 +33,7 @@ def blast(seq, blastdb, blastdb_len):
             #Turn io stream into string
             result = subprocess.run(args, capture_output=True)
             decoded = result.stdout.decode('utf-8')
-            print(decoded)
+            #print(decoded)
             output = io.StringIO(decoded)
             #Output formatting into dataframe
             headers=[
@@ -70,7 +70,7 @@ class multi_blast():
                 print(result)
 
 def main(): 
-    seq = ['atcgatgcatgatc', 'atgatatagatcggt', 'atgatcggatagcagat', 'atagcatagagtaca']
+    seq = ['ccttgctcgaaagagctt', 'cttgctcgaaagagctt', 'tgattagcggtctttcg', 'ctgattagcggtctttc']
     bob = multi_blast(seq)
     bob.run()
 

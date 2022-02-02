@@ -101,7 +101,7 @@ def blast(seq, blastdb, blastdb_len):
     #Capture output
     result = subprocess.run(args, capture_output=True)
     decoded = result.stdout.decode('utf-8')
-    print(decoded)
+    #print(decoded)
     output = io.StringIO(decoded)
     #Output formatting into dataframe
     headers=[
@@ -237,7 +237,10 @@ def parse_args():
     #Note that coordinates are converted to 0-based half-open coordinates
     return (args.target_seq, args.target_start-1, args.target_end, args.min_primer_len, args.max_primer_len, args.sens_spec_flag, args.blastdb, args.blastdb_len, args.target_accessions)
 
-def main(target_seq_path, target_start, target_end, min_primer_len, max_primer_len, check_flag, blastdb, blastdb_len, target_accession_path):
+def main():
+    #Arguments
+    target_seq_path, target_start, target_end, min_primer_len, max_primer_len, check_flag, blastdb, blastdb_len, target_accession_path = parse_args()
+    
     #Input data - alignment, target indices
     target_seq_file = SeqIO.read(target_seq_path, 'fasta')
     target_sequence = target_seq_file.seq[target_start:target_end]
@@ -325,5 +328,4 @@ def main(target_seq_path, target_start, target_end, min_primer_len, max_primer_l
         csvwriter.writerows(probe_data)
 
 if __name__ == '__main__': 
-    target_seq_path, target_start, target_end, min_primer_len, max_primer_len, check_flag, blastdb, blastdb_len, target_accession_path = parse_args()
-    main(target_seq_path, target_start, target_end, min_primer_len, max_primer_len, check_flag, blastdb, blastdb_len, target_accession_path)
+    main()

@@ -429,7 +429,10 @@ def find_primer_pairs(list_fw_primers, list_rev_primers, max_tm_diff):
                 break
     return list_primer_pairs
 
-def main(target_seq_path, pb_start, pb_end, min_primer_len, max_primer_len, max_tm_diff, sens_spec_flag, blastdb, blastdb_len, target_accessions_path): 
+def main(): 
+    #Get arguments
+    target_seq_path, pb_start, pb_end, min_primer_len, max_primer_len, max_tm_diff, sens_spec_flag, blastdb, blastdb_len, target_accessions_path = parse_args()
+    
     #Get target sequence and design forward and reverse primers
     target_seq_file = SeqIO.read(target_seq_path, 'fasta')
     target_seq = target_seq_file.seq
@@ -554,5 +557,4 @@ def main(target_seq_path, pb_start, pb_end, min_primer_len, max_primer_len, max_
         csvfile.close()
 
 if __name__ == '__main__':
-    target_seq_path, pb_start, pb_end, min_primer_len, max_primer_len, max_tm_diff, sens_spec_flag, blastdb, blastdb_len, target_accessions_path = parse_args()
-    main(target_seq_path, pb_start, pb_end, min_primer_len, max_primer_len, max_tm_diff, sens_spec_flag, blastdb, blastdb_len, target_accessions_path)
+    main()

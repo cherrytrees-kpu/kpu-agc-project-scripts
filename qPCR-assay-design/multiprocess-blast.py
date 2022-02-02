@@ -8,7 +8,6 @@ import pandas
 import csv
 import multiprocessing
 
-
 class multi_blast(): 
     def __init__(self, query_seq): 
         self.query = query_seq
@@ -61,8 +60,11 @@ class multi_blast():
         return data
     def run(self): 
         #Split the job
+        args = []
+        for i in self.query: 
+            args.append((i, '/data/db/SSU-nematodes.fasta', '17095'))
         with multiprocessing.Pool() as p: 
-            blast_results = p.map(_blast, self.query)
+            blast_results = p.starmap(_blast, args)
             for result in blast_results: 
                 print(result)
 

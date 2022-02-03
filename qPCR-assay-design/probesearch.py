@@ -145,6 +145,7 @@ class probeGenerator:
                     probe.len, 
                     probe.seq, 
                     probe.sensitivity, 
+                    probe.specificity,
                     probe.score,
                 )
             )

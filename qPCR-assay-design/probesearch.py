@@ -12,6 +12,7 @@ class probe:
         self.seq = seq
         self.root_pos = root_pos
         self.len = len(self.seq)
+        self.id =  f"{str(self.root_pos)}-{str(self.len)}"
         self.sensitivity = 0
         self.specificity = 0
         self.score = 0

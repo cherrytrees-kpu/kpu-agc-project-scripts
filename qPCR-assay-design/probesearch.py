@@ -164,56 +164,55 @@ class nemaBlast:
         self.blastdb = blastdb
         self.blastdb_len = blastdb_len
     
-    def blast(seq, blastdb, blastdb_len): 
-        fasta = tempfile.NamedTemporaryFile(delete=True)
-        fasta.write(f">probe\n{str(seq)}".encode())
-        fasta.seek(0)
-        args = [
-            "blastn",
-            "-task",
-            "blastn-short",
-            "-db",
-            blastdb,
-            "-num_alignments",
-            str(blastdb_len),
-            "-outfmt",
-            "10 qacc sacc ssciname pident qlen length mismatch gapopen qstart qend sstart send evalue bitscore",
-            "-query",
-            fasta.name,
-        ]
-        #Capture output
-        result = subprocess.run(args, capture_output=True)
-        decoded = result.stdout.decode('utf-8')
-        #print(decoded)
-        output = io.StringIO(decoded)
-        #Output formatting into dataframe
-        headers=[
-            'qacc',
-            'sacc',
-            'ssciname',
-            'pident',
-            'qlen',
-            'length',
-            'mismatch', 
-            'gapopen', 
-            'qstart', 
-            'qend', 
-            'sstart', 
-            'send', 
-            'evalue', 
-            'bitscore',
-        ]
-        data = pandas.read_csv(output, sep=',', header=None, names=headers)
-        fasta.close()
-        return data
-    
     def blast_all(self, probes):
+        def blast(seq, blastdb, blastdb_len): 
+            fasta = tempfile.NamedTemporaryFile(delete=True)
+            fasta.write(f">probe\n{str(seq)}".encode())
+            fasta.seek(0)
+            args = [
+                "blastn",
+                "-task",
+                "blastn-short",
+                "-db",
+                blastdb,
+                "-num_alignments",
+                str(blastdb_len),
+                "-outfmt",
+                "10 qacc sacc ssciname pident qlen length mismatch gapopen qstart qend sstart send evalue bitscore",
+                "-query",
+                fasta.name,
+            ]
+            #Capture output
+            result = subprocess.run(args, capture_output=True)
+            decoded = result.stdout.decode('utf-8')
+            #print(decoded)
+            output = io.StringIO(decoded)
+            #Output formatting into dataframe
+            headers=[
+                'qacc',
+                'sacc',
+                'ssciname',
+                'pident',
+                'qlen',
+                'length',
+                'mismatch', 
+                'gapopen', 
+                'qstart', 
+                'qend', 
+                'sstart', 
+                'send', 
+                'evalue', 
+                'bitscore',
+            ]
+            data = pandas.read_csv(output, sep=',', header=None, names=headers)
+            fasta.close()
+            return data       
         blast_results = dict()
         for probe in probes:
             blast_results[probe.id] = self.blast(probe.seq, self.blastdb, self.blastdb_len)
         return blast_results
 
-    def output(blast_results, path): 
+    def output(self, blast_results, path): 
         #Make path to store all of the blast results
         blast_folder_path = path.with_name('probe_blast')
         blast_folder_path.mkdir()
@@ -318,6 +317,6 @@ def main():
         pb_gen.output(target_seq_path)
     else: 
         pb_gen.output(target_seq_path)
-        
+
 if __name__ == '__main__': 
     main()

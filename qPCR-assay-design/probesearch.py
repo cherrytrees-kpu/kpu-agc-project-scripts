@@ -213,6 +213,7 @@ class nemaBlast:
         blast_results = dict()
         for probe in probes:
             blast_results[probe.id] = blast(probe.seq, self.blastdb, self.blastdb_len)
+            print(f"{str(probes.index(probe))} out of {str(len(probes))} completed..")
         return blast_results
 
     def output(self, blast_results, path): 

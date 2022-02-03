@@ -152,12 +152,14 @@ class probeGenerator:
         csv_file = open(output_path, 'w', newline='')
         csv_writer = csv.writer(csv_file)
         csv_writer.writerow(
-            'probe_root',
+            (
+                'probe_root',
                 'probe_len',
                 'probe_seq',
                 'sens',
                 'spec',
                 'score',
+            )
         )
         csv_writer.writerows(probe_data)
         csv_file.close()

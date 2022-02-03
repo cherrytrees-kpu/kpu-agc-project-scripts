@@ -209,7 +209,7 @@ class nemaBlast:
             return data       
         blast_results = dict()
         for probe in probes:
-            blast_results[probe.id] = self.blast(probe.seq, self.blastdb, self.blastdb_len)
+            blast_results[probe.id] = blast(probe.seq, self.blastdb, self.blastdb_len)
         return blast_results
 
     def output(self, blast_results, path): 

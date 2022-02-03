@@ -140,11 +140,13 @@ class probeGenerator:
         probe_data = []
         for probe in self.probes: 
             probe_data.append(
-                probe.root_pos,
-                probe.len, 
-                probe.seq, 
-                probe.sensitivity, 
-                probe.score,
+                (
+                    probe.root_pos,
+                    probe.len, 
+                    probe.seq, 
+                    probe.sensitivity, 
+                    probe.score,
+                )
             )
         output_path = path.with_name('probe_candidates.csv')
         csv_file = open(output_path, 'w', newline='')

@@ -290,8 +290,8 @@ def write_genotype_DataFrames_to_excel(list_of_genotype_DataFrames, output_path)
                         elif individual_genotype == '*':
                             worksheet.write(row_i + 1, col_i + 1, '*', f_bad_type)
 
-            worksheet.merge_range('B3:B12', 'Bos taurus', f_species_merge)
-            worksheet.merge_range('B15:B24', 'Bos indicus', f_species_merge)
+            worksheet.merge_range('B3:B12', 'Bos indicus', f_species_merge)
+            worksheet.merge_range('B15:B24', 'Bos taurus', f_species_merge)
 
 def parse_json(query_ab1, gene, name):
     """

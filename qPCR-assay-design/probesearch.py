@@ -222,7 +222,7 @@ class nemaBlast:
     def output(self, blast_results, path): 
         #Make path to store all of the blast results
         blast_folder_path = path.with_name('probe_blast')
-        blast_folder_path.mkdir()
+        blast_folder_path.mkdir(exist_ok=True)
         #Go through blast result dictionary and output all of the data
         for blast_result_key in blast_results: 
             blast_output_path = blast_folder_path.joinpath(f"{blast_result_key}_probe.csv")

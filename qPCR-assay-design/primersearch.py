@@ -80,7 +80,7 @@ class primerpair:
     def calc_tm_diff(self): 
         return abs(self.fw_primer.tm - self.rev_primer.tm)
 
-    def calculate_primer_pair_sensitivity(self, fw_blast_results, rev_blast_results, target_accessions): 
+    def calculate_sensitivity(self, fw_blast_results, rev_blast_results, target_accessions): 
         """
         Function calculates the sensitivity of a primer pair given the BLAST results for both. 
         Amplification is defined as an accession where both the forward and reverse primers have 
@@ -107,7 +107,7 @@ class primerpair:
         #Calculate sensitivity and return
         self.sensitivity = target_match/len(target_accessions)
 
-    def calculate_primer_pair_specificity(self, fw_blast_results, rev_blast_results, target_accessions, blastdb_len):
+    def calculate_specificity(self, fw_blast_results, rev_blast_results, target_accessions, blastdb_len):
         fw_match_accessions = set(fw_blast_results.loc[:,'sacc'])
         rev_match_accessions = set(rev_blast_results.loc[:,'sacc'])
         amplified_accessions = set(fw_match_accessions&rev_match_accessions)
@@ -119,7 +119,7 @@ class primerpair:
         #Total non-target = all_blast_sequences - target_accessions
         self.specificity = (blastdb_len - len(amplified_accessions))/(blastdb_len - len(target_accessions))
 
-    def calculate_primer_pair_score(self): 
+    def calculate_score(self): 
         self.score = self.sensitivity + self.specificity
 
 class primerGenerator: 

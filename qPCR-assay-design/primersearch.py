@@ -617,7 +617,7 @@ def main():
             rev_blast = rev_blast_results[primer_pair.rev_primer.id]
             primer_pair.calculate_sensitivity(fw_blast, rev_blast, target_accessions)
             primer_pair.calculate_specificity(fw_blast, rev_blast, target_accessions, blastdb_len)
-            primer_pair.calculate_primer_pair_score() 
+            primer_pair.calculate_score() 
 
     #Output
     primer_gen.output(target_seq_path)

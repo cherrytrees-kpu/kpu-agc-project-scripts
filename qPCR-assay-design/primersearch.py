@@ -14,7 +14,7 @@ class oligo:
         self.seq = seq
         self.root_pos = root_pos
         self.len = len(self.seq)
-        self.tm = 0
+        self.tm = tm
         self.id =  f"{str(self.root_pos)}-{str(self.len)}"
         self.sensitivity = 0
         self.specificity = 0

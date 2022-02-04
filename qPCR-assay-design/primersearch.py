@@ -599,11 +599,11 @@ def main():
         rev_blast_results = primer_blast.blast_all(primer_gen.rev_primers)
         for fw_primer in primer_gen.fw_primers: 
             fw_primer.calculate_sensitivity(fw_blast_results[fw_primer.id], target_accessions)
-            fw_primer.calculate_specificity(fw_blast_results[fw_primer.id], target_accessions)
+            fw_primer.calculate_specificity(fw_blast_results[fw_primer.id], target_accessions, blastdb_len)
             fw_primer.calculate_score()
         for rev_primer in primer_gen.rev_primers: 
             rev_primer.calculate_sensitivity(rev_blast_results[rev_primer.id], target_accessions)
-            rev_primer.calculate_specificity(rev_blast_results[rev_primer.id], target_accessions)
+            rev_primer.calculate_specificity(rev_blast_results[rev_primer.id], target_accessions, blastdb_len)
             rev_primer.calculate_score()
         primer_blast.output(fw_blast_results, target_seq_path, 'fw')
         primer_blast.output(rev_blast_results, target_seq_path, 'rev')

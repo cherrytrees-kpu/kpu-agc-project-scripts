@@ -1,168 +1,121 @@
 #!/usr/bin/env python3
 """
 Author : Erick Samera
-Date   : 2022-02-03
+Date   : 2022-02-05
 Purpose: Parse tracy JSON files and produce summary .xlsx sheet.
 """
 
+import json
+import pathlib
 import argparse
+import random
+import time
 from typing import NamedTuple
-import json, pathlib, time
 import pandas as pd
 
 class Args(NamedTuple):
     """ Command-line arguments """
-    json_file_path: pathlib.Path
-    output_dir: bool
-    input_type: bool
-    csv: bool
+    input_path: pathlib.Path
+    make_template: bool
+    use_template: pathlib.Path
+
+    verbose: int
+    output_csv: bool
 
 # --------------------------------------------------
 def get_args() -> Args:
     """ Get command-line arguments """
 
     parser = argparse.ArgumentParser(
-        description='Parse tracy JSONs and produce a summary excel sheet',
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+        description='Parse tracy JSON files and produce a summary .xlsx spreadsheet.',
+        usage='%(prog)s [--make_template/--summary] [options] [path]',
+        formatter_class=argparse.RawTextHelpFormatter
+        )
 
-    parser.add_argument('json_file_path',
-                        metavar='json_file_path',
-                        type=pathlib.Path,
-                        help='Path of directory containing tracy JSONs (or directories of gene JSONs)')
+    parser.add_argument(
+        'input_path',
+        metavar = 'input_path',
+        type = pathlib.Path,
+        help = '\n'.join([
+            'path to perform function:',
+            '--make_template    output for template',
+            '--template_input   dir containing dirs of tracy JSON files'
+            ])
+        )
 
-    parser.add_argument('-o',
-                        '--output_dir',
-                        help="flag whether directory 'output' will be created",
-                        action='store_false')
+    main_arg = parser.add_mutually_exclusive_group(required=True)
 
-    parser.add_argument('-i',
-                        '--input_type',
-                        help="flag whether Michael put genes into individual folders",
-                        action='store_false')
-    
-    parser.add_argument('--csv',
-                        help="flag whether .csv files will be produced for each gene (mostly for debugging)",
-                        action='store_true')
+    main_arg.add_argument(
+        '--make_template',
+        action='store_true',
+        help='create a template and exit'
+        )
+
+    main_arg.add_argument(
+        '--use_template',
+        metavar='FILE',
+        type=pathlib.Path,
+        help='summarizes data using specified template'
+        )
+
+    group_debug = parser.add_argument_group('debugging')
+
+    group_debug.add_argument(
+        '-v',
+        '--verbose',
+        action='count',
+        default=0,
+        help='set verbosity',
+        )
+
+    group_debug.add_argument(
+        '--output_csv',
+        action='store_true',
+        help='output .csv for each JSON group',
+        )
 
     args = parser.parse_args()
 
-    return Args(args.json_file_path, args.output_dir, args.input_type, args.csv)
+    return Args(args.input_path, args.make_template, args.use_template, args.verbose, args.output_csv)
 
 # --------------------------------------------------
 def main() -> None:
+    """ Do the thing """
 
-    start_main = time.time()
-
-    # define args
+    # get command-line args
     args = get_args()
-    json_file_path_arg = args.json_file_path.resolve()
-    output_dir_arg = args.output_dir
-    input_type_arg = args.input_type
-    csv_arg = args.csv
+    input_path_arg = args.input_path.resolve()
+    make_template_arg = args.make_template
+    use_template_arg = args.use_template.resolve() if args.use_template else None
 
-    # check output_dir flag, if true: make an output dir
-    if output_dir_arg:
-        output_flag = 'tracy_json_parse'
-        output_path = json_file_path_arg.joinpath(f"{output_flag}_output-{time.strftime('%Y_%m_%d-%H%M%S', time.localtime(time.time()))}")
-        output_path.mkdir(parents=True, exist_ok=True)
-    else:
-        output_path = json_file_path_arg
+    verbose_arg = args.verbose
+    output_csv_arg = args.output_csv
 
-    sample_list = {
-        '#reference': {
-                'aliases': ['reference', 'ref'],
-                'species': '#ref'
-                },
-        'AliBarber': {
-                'aliases': ['alibarber'],
-                'species': 'Bos taurus'
-                },
-        'Cochise': {
-                'aliases': ['cochise'],
-                'species': 'Bos taurus'
-                },
-        'Sansao': {
-                'aliases': ['sansao'],
-                'species': 'Bos taurus'
-                },
-        'Slugger': {
-                'aliases': ['slugger', 'slogger'],
-                'species': 'Bos taurus'
-                },
-        'LLNKune': {
-                'aliases': ['llnkune', 'llnkure'],
-                'species': 'Bos indicus'
-                },
-        'Nagaki': {
-                'aliases': ['nagaki'],
-                'species': 'Bos indicus'
-                },
-        'Raider': {
-                'aliases': ['raider'], 
-                'species': 'Bos indicus'
-                },
-        'Renditium': {
-                'aliases': ['renditium', 'rendition'],
-                'species': 'Bos indicus'
-                }
-        }
+    # define output_path
+    output_path = input_path_arg
 
-    list_of_genotype_DataFrames = {}
+    # create a template if the template flag was specified
+    if make_template_arg:
+        print_runtime('created template file')
+        print('refer to the template below for formatting: \n')
+        generate_template_file(output_path)
+        print('\naliases not case-sensitive \n')
 
-    # check input_type flag, if true: 
-    if input_type_arg:
-        for gene_dir in json_file_path_arg.iterdir():
-            if gene_dir.is_dir():
-                for sample_json in gene_dir.glob('*.json'):
-                    query_path = gene_dir
-                    list_of_genotype_DataFrames.update({gene_dir.stem: generate_genotype_DataFrame(sample_list, gene_dir.stem, query_path, output_path, csv_arg)})
-    else:
-        list_of_genes = list(set([gene.stem.split('_')[0] for gene in json_file_path_arg.glob('*.json')]))
-        for gene in list_of_genes:
-            query_path = json_file_path_arg
-            list_of_genotype_DataFrames.update({gene: generate_genotype_DataFrame(sample_list, gene, query_path, output_path, csv_arg)})
-    write_genotype_DataFrames_to_excel(list_of_genotype_DataFrames, output_path)
-    print_runtime(f'Produced summary tracy genotyping excel file.')
+    # carry on with the rest of tracy parse
+    elif use_template_arg:
+        region_dir_genotypes = {}
 
-def generate_genotype_DataFrame(sample_list, gene_ID, query_path, output_path, csv_arg):
-    """
-    Function will generate a genotype DataFrame with genotyping template
-    """
-    SNP_data = generate_template(sample_list)
-            
-    for sample_json in query_path.glob(f'{gene_ID}*.json'):
-        
-        gene = sample_json.stem.split('_')[0]
-        sample = validate_sample_name(sample_json.stem.split('_')[1], sample_list)
+        # for each region, generate a set of genotypes
+        for region_dir in input_path_arg.iterdir():
+            if region_dir.is_dir():
+                region_dir_genotypes[region_dir.stem] = generate_genotype_DataFrame(use_template_arg, region_dir)
+                print_runtime(f'Generated genotypes DataFrame for {region_dir.name}')
+                if output_csv_arg:
+                    generate_genotype_DataFrame(use_template_arg, region_dir).to_csv(output_path.joinpath(f'{region_dir.name}_genotypes.csv'), index=False)
+                    print_runtime(f'Created file {region_dir.name}_genotypes.csv')
 
-        results = parse_json(sample_json, gene, sample)
-        SNP_data[sample]['seq'] = True
-        SNP_data['#reference']['seq'] = True
-
-        for i in results[0]:
-            SNP_data[sample].update(i)
-        
-        for i in results[1]:
-            SNP_data['#reference'].update(i)
-
-    SNP_DataFrame = pd.DataFrame.from_dict(SNP_data, orient='index')
-
-    for column in SNP_DataFrame.columns[2:]:
-        reference_genotype = SNP_DataFrame.at['#reference', column][0]
-        
-        for row_num, row_val in SNP_DataFrame[1:].iterrows():
-            if not isinstance(SNP_DataFrame.at[row_num, column], list) and SNP_DataFrame.at[row_num, 'seq']:
-                SNP_DataFrame.at[row_num, column] = [reference_genotype, None, None]
-            elif not SNP_DataFrame.at[row_num, 'seq']:
-                SNP_DataFrame.at[row_num, column] = ['*', None, None]
-
-    if csv_arg:
-        SNP_DataFrame.to_csv(output_path.joinpath(f'{gene}.csv'))
-        print_runtime(f'Produced {gene}.csv')
-    
-    if SNP_DataFrame.columns.tolist()[2:]:
-        SNP_DataFrame = SNP_DataFrame.explode(SNP_DataFrame.columns.tolist()[2:])
-    return SNP_DataFrame
+        write_genotype_DataFrames_to_excel(region_dir_genotypes, output_path)
+        print_runtime(f'Finished writing excel file!')
 
 def write_genotype_DataFrames_to_excel(list_of_genotype_DataFrames, output_path) -> None:
     """
@@ -185,7 +138,7 @@ def write_genotype_DataFrames_to_excel(list_of_genotype_DataFrames, output_path)
             'valign' : 'vcenter',
             'bg_color' : '#ffeb9c',
             'font_color' : '#9c5700'})
-        f_neutral_under = workbook.add_format({
+        f_neutral_underline = workbook.add_format({
             'align' : 'center',
             'valign' : 'vcenter',
             'bg_color' : '#ffeb9c',
@@ -196,7 +149,7 @@ def write_genotype_DataFrames_to_excel(list_of_genotype_DataFrames, output_path)
             'valign' : 'vcenter',
             'bg_color' : '#ffc7ce',
             'font_color' : '#9c0006'})
-        f_bad_under = workbook.add_format({
+        f_bad_underline = workbook.add_format({
             'align' : 'center',
             'valign' : 'vcenter',
             'bg_color' : '#ffc7ce',
@@ -207,6 +160,11 @@ def write_genotype_DataFrames_to_excel(list_of_genotype_DataFrames, output_path)
             'valign' : 'vcenter',
             'bold' : True,
             'bottom' : 6 })
+        f_sample_name_column = workbook.add_format({
+            'align' : 'center',
+            'valign' : 'vcenter',
+            'bold' : True,
+            'bottom' : 1 })
         f_ref = workbook.add_format({
             'align' : 'center',
             'valign' : 'vcenter',
@@ -226,21 +184,12 @@ def write_genotype_DataFrames_to_excel(list_of_genotype_DataFrames, output_path)
         # for each each gene in the list of genotype DataFrames, set up an excel sheet
         for gene in list_of_genotype_DataFrames:
 
-            # deal with blank tables because tracy didn't find any variants
-            if len(list_of_genotype_DataFrames[gene]) == 9:
-                list_of_genotype_DataFrames[gene][''] = [None]*9
-                list_of_genotype_DataFrames[gene].at['#reference', ''] = [None]
-                for row_i, row_val in list_of_genotype_DataFrames[gene].iterrows():
-                    if row_i != '#reference':
-                        list_of_genotype_DataFrames[gene].at[row_i,''] = [None, None, None]
-                list_of_genotype_DataFrames[gene] = list_of_genotype_DataFrames[gene].explode('')
-
-            list_of_genotype_DataFrames[gene].to_excel(writer, sheet_name=gene, index = True)
+            list_of_genotype_DataFrames[gene].to_excel(writer, sheet_name=gene, index=False)
             genetype_DataFrame_for_excel  = list_of_genotype_DataFrames[gene].reset_index()
 
             paternal_expressed = ['GNAS', 'MEST', 'NNAT', 'PEG10', 'PEG3', 'PLAGL1', 'RTL1', 'SNRPN', 'XIST']
             maternal_expressed = ['H19', 'IGF2R']
-            # make formatting changes 
+            # make formatting changes
             # --------------------------------------------------
             worksheet = writer.sheets[gene]
 
@@ -250,55 +199,116 @@ def write_genotype_DataFrames_to_excel(list_of_genotype_DataFrames, output_path)
             elif gene.split('-')[0] in maternal_expressed:
                 worksheet.set_tab_color('#F2ACB9')
 
-            # change the column formatting
-            worksheet.set_column(0, 1, 10, f_align_left)
-            worksheet.set_column(1, 2, 7, f_align_left)
+            # change the column formatting sizes and hide some
+            worksheet.set_column(0, 1, 14, f_align_left)
+            worksheet.set_column(1, 2, 12, f_align_left)
             worksheet.set_column(3, len(list_of_genotype_DataFrames[gene].columns.tolist()) + 1, 14.3, f_align_center)
-            worksheet.set_column(2, 3, options={'hidden' : True})
+            worksheet.set_column(1, 1, options={'hidden' : True})
 
-            # write the header
+            # add header formatting
             for col_num, col_value in enumerate(list_of_genotype_DataFrames[gene].columns.values):
-                worksheet.write(0, col_num + 1, col_value, f_header)					                                # header
-                worksheet.write(1, col_num + 1, list_of_genotype_DataFrames[gene].iat[0, col_num], f_ref)		        # subheader
-            
+                worksheet.write(0, col_num, col_value, f_header)					                                # header
+                worksheet.write(1, col_num, list_of_genotype_DataFrames[gene].iat[0, col_num], f_ref)		        # subheader
+
+            # add sample_name formatting
+            for sample_i, sample_name in enumerate(list_of_genotype_DataFrames[gene]['sample_name']):
+                worksheet.write(sample_i+1, 0, sample_name, f_sample_name_column)
+
             # iterate through the rows and do actions
-            for row_i, row_val in genetype_DataFrame_for_excel[1::3].iterrows():
+            for row_i, row_val in genetype_DataFrame_for_excel[::3].iterrows():
                 # hide the second and third row after the reference
-                worksheet.set_row(row_i+2, None, options={'hidden' : True}) 
+                worksheet.set_row(row_i+2, None, options={'hidden' : True})
                 worksheet.set_row(row_i+3, None, options={'hidden' : True})
 
                 # for each column, get the column reference
                 for col_i, col_v in enumerate(list_of_genotype_DataFrames[gene].columns.values):
-                    if col_i > 1:
+                    if col_i > 2:
 
                         reference_genotype = str(genetype_DataFrame_for_excel.at[0, col_v]).strip()
                         individual_genotype = str(row_val[col_v]).strip()
+                        #print(reference_genotype, individual_genotype)
 
-                        if row_i == 10: 
-                            worksheet.write(row_i + 1, col_i + 1, genetype_DataFrame_for_excel.at[row_i, col_v], f_bos_divider)
-                        if row_i == 22: 
-                            worksheet.write(row_i + 1, col_i + 1, genetype_DataFrame_for_excel.at[row_i, col_v], f_bos_divider)
+                        middle_line = 12
+                        bottom_line = 24
 
-                        f_neutral_type = f_neutral_under if (row_i == 10 or row_i == 22) else f_neutral
-                        f_bad_type = f_bad_under if (row_i == 10 or row_i == 22) else f_bad
+                        if row_i == middle_line:
+                            worksheet.write(row_i + 1, col_i, genetype_DataFrame_for_excel.at[row_i, col_v], f_bos_divider)
+                        if row_i == bottom_line:
+                            worksheet.write(row_i + 1, col_i, genetype_DataFrame_for_excel.at[row_i, col_v], f_bos_divider)
+
+                        f_neutral_type = f_neutral_underline if (row_i == middle_line or row_i == bottom_line) else f_neutral
+                        f_bad_type = f_bad_underline if (row_i == middle_line or row_i == bottom_line) else f_bad
 
                         # if the genotype isn't the reference and isn't a failed sequence, highlight this cell as yellow
-                        if individual_genotype != reference_genotype and individual_genotype != '*':
-                            worksheet.write(row_i + 1, col_i + 1, genetype_DataFrame_for_excel.at[row_i, col_v], f_neutral_type)
+                        if individual_genotype not in (reference_genotype, '*'):
+                            worksheet.write(row_i + 1, col_i, genetype_DataFrame_for_excel.at[row_i, col_v], f_neutral_type)
 
                         # if the genotype is a failed sequence, highlight this cell as red
                         elif individual_genotype == '*':
-                            worksheet.write(row_i + 1, col_i + 1, '*', f_bad_type)
+                            worksheet.write(row_i + 1, col_i, '*', f_bad_type)
 
-            worksheet.merge_range('B3:B12', 'Bos indicus', f_species_merge)
-            worksheet.merge_range('B15:B24', 'Bos taurus', f_species_merge)
+            worksheet.merge_range('C5:C14', 'Bos taurus', f_species_merge)
+            worksheet.merge_range('C17:C26', 'Bos indicus', f_species_merge)
 
-def parse_json(query_ab1, gene, name):
+            print_runtime(f'Created worksheet for {gene}')
+
+def generate_genotype_DataFrame(input_template, input_region_dir) -> pd.DataFrame:
+    """
+    Function will parse_JSON files in a given directory and create a dict containing genotypes of each sample against a reference
+    """
+
+    template_dict = read_template(input_template)
+    last_orig_column_pos = len(template_dict[0].keys()) - 1
+
+    for json_file in input_region_dir.glob('*.json'):
+
+        # update the reference genotypes
+        for SNP in parse_json(json_file)['reference_SNP']:
+            template_dict[0].update(SNP)
+            template_dict[0]['seq'] = True
+
+        # update the sample genotypes
+        sample_i = validate_sample_name(json_file.stem.split('_')[1], template_dict)['name_position']
+        for SNP in parse_json(json_file)['sample_SNP']:
+            template_dict[sample_i].update(SNP)
+
+        # update seq flag since tracy json exists
+        template_dict[sample_i]['seq'] = True
+
+    # clean up the DataFrame before returning it
+    template_DataFrame = pd.DataFrame(pd.DataFrame.from_dict(template_dict, orient='index'))
+    template_DataFrame.drop(columns='aliases', inplace=True)
+    sorted_columns = list(template_DataFrame.columns[:last_orig_column_pos]) + sorted(template_DataFrame.columns[last_orig_column_pos:])
+    template_DataFrame = template_DataFrame[sorted_columns]
+
+    # replace all blanks before exploding
+    # iterate through the tracy variant-called columns
+    # define the reference genotype and compare the sample genotype to that
+    # also check whether the sequence failed
+    for column in list(template_DataFrame.columns)[last_orig_column_pos:]:
+        reference_genotype = template_DataFrame.at[0, column][0]
+        for row_num, _ in template_DataFrame.iterrows():
+            sample_genotype = template_DataFrame.at[row_num, column]
+            if not isinstance(sample_genotype, list):
+                if template_DataFrame.at[row_num, 'seq'] and pd.isna(sample_genotype):
+                    template_DataFrame.at[row_num, column] = [reference_genotype, None, None]
+                elif not template_DataFrame.at[row_num, 'seq'] and pd.isna(sample_genotype):
+                    template_DataFrame.at[row_num, column] = ['*', None, None]
+
+    try:
+        # explode
+        template_DataFrame = template_DataFrame.explode(list(template_DataFrame.columns)[last_orig_column_pos:])
+    except ValueError:
+        print(template_DataFrame)
+
+    return template_DataFrame
+
+def parse_json(query_json) -> dict:
     """
     Function will parse json files produced by tracy and return a list of sample genotypes and corresponding reference genotypes
     """
 
-    with open(f'{query_ab1}') as tracy_json:
+    with open(f'{query_json}', 'r', encoding='UTF-8') as tracy_json:
 
         # initialize the json file from tracy
         data = json.load(tracy_json)
@@ -309,10 +319,10 @@ def parse_json(query_ab1, gene, name):
         # initialize the genotype and reference for each variant position
         sample_genotypes_list = []
         reference_genotypes_list = []
-        
-        for row_i, row_val in variant_data.iterrows() if not variant_data.empty else []:
+
+        for _, row_val in variant_data.iterrows() if not variant_data.empty else []:
             if row_val['filter'] == 'PASS':
-                
+
                 # define the reference position relative to the reference genome
                 genomic_pos = f"{row_val['chr']}:{row_val['pos']}"
 
@@ -330,42 +340,90 @@ def parse_json(query_ab1, gene, name):
                         int(row_val['basepos']),
                         row_val['genotype']
                         ]})
-                
+
                 reference_genotypes_list.append({
                     genomic_pos: [
-                        row_val['ref']
+                        row_val['ref'],
+                        None,
+                        None,
                         ]})
 
-    return sample_genotypes_list, reference_genotypes_list
+    return {'sample_SNP': sample_genotypes_list, 'reference_SNP': reference_genotypes_list}
 
-def validate_sample_name(query_name: str, sample_list):
+def validate_sample_name(input_name, template_dict) -> dict:
     """
-    Function will validate the query name with a sample list of defined names and aliases
+    Function will validate the input name with a sample list of defined names and aliases
     """
 
-    verified_sample_name = [key for key, value in sample_list.items() if query_name.lower() in value['aliases']]
+    verified_sample_name = [key for key, value in template_dict.items() if input_name.lower() in value['aliases']]
 
     if verified_sample_name:
-        return verified_sample_name[0]
-    else:
-        return None
+        return {'name_value': template_dict[verified_sample_name[0]]['sample_name'], 'name_position': verified_sample_name[0]}
 
-def generate_template(sample_list):
+def generate_template_file(output_path) -> None:
     """
-    Function will generate a template of the genotype table
+    Function will generate a .tab template file for use with the --template_input flag.
     """
 
-    genotypes_template = {}
+    time_string = time.strftime("%Y_%m_%d_%H%M%S", time.localtime(time.time()))
 
-    for sample in sample_list:
-        genotypes_template.update({
-            sample : {'species': sample_list[sample]['species'], 'seq': False}
-            })
+    with open(output_path.joinpath(f'template_{time_string}.tab'), 'w', encoding='UTF-8') as template_file:
+        headers = [
+            'sample_name',
+            'aliases'
+        ]
+        template_file.write('\t'.join(headers))
 
-    return genotypes_template
+    example_data = {
+        0 : [
+            ('Erick', ['erick']),
+            ('RJ', ['robert john', 'rj']),
+            ('Michael', ['cherry_trees']),
+            ('Monique', ['goof']),
+            ('Daleena', ['williams'])],
+        1 : [
+            ('AliBarber', ['alibarber']),
+            ('Cochise', ['cochise']),
+            ('Sansao', ['sansao']),
+            ('Slugger', ['slugger', 'slogger']),
+            ('LLNKune', ['llnkune', 'llnkure']),
+            ('Nagaki', ['nagaki']),
+            ('Raider', ['raider']),
+            ('Rendition', ['rendition', 'renditium']),
+        ]}
 
-def print_runtime(action):
+    random_example_data = random.choices(example_data)[0]
+    example_headers = ['sample_name', 'aliases']
+
+    example_DataFrame = pd.DataFrame(random_example_data, columns=example_headers)
+    example_DataFrame['param+1'] = ''
+    print(example_DataFrame)
+
+def read_template(input_template_file) -> dict:
+    """
+    Function will read template file and output a dict that will be easier to deal with.
+    """
+
+    template_file_DataFrame = pd.DataFrame(pd.read_csv(input_template_file, delimiter='\t'))
+
+    # create a reference row at the top of the DataFrame
+    template_file_DataFrame.loc[-1] = ['#reference',] + (['#ref',] * (len(template_file_DataFrame.columns) - 1))
+    template_file_DataFrame.index = template_file_DataFrame.index + 1
+    template_file_DataFrame = template_file_DataFrame.sort_index()
+
+    # fix the aliases column
+    for alias_i, alias_value in enumerate(template_file_DataFrame['aliases']):
+        template_file_DataFrame.at[alias_i, 'aliases'] = [alias.lower().strip() for alias in alias_value[1:-1].split(',')]
+
+    # insert sequence flag for successful sequencing
+    template_file_DataFrame.insert(1, 'seq', [False,] * len(template_file_DataFrame))
+
+    return template_file_DataFrame.to_dict(orient='index')
+
+def print_runtime(action) -> None:
+    """ Print the time and some defined action. """
     print(f'[{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}] {action}')
+
 # --------------------------------------------------
 if __name__ == '__main__':
     main()

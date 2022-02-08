@@ -7,6 +7,7 @@ import subprocess
 class genbankHandler(): 
     def __init__(self, gb_path, output_path): 
         self.data = SeqIO.parse(gb_path, 'gb')
+        self.id = gb_path.stem
         self.path = output_path
         self.fasta_paths = []
         self.alignment_paths = []
@@ -220,11 +221,11 @@ class genbankHandler():
             consensus_seqs[alignment_id] = consensus_seq
         self.consensus_sequences = consensus_seqs
         #Output
-        self.consensus_path = self.path.joinpath(self.path.stem + '_consensus.fasta')
+        self.consensus_path = self.path.joinpath(self.id + '_consensus.fasta')
         create_fasta(self.consensus_sequences, self.consensus_path)
     
     def generate_consensus_alignment(self): 
-        consensus_alignment_path = self.path.joinpath(self.path.stem + '_consensus_aligned.fasta')
+        consensus_alignment_path = self.path.joinpath(self.id + '_consensus_aligned.fasta')
         args =[
                 'mafft',
                 '--auto',

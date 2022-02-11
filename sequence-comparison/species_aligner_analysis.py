@@ -5,9 +5,10 @@ import csv
 import subprocess
 
 class genbankHandler(): 
-    def __init__(self, gb_path): 
+    def __init__(self, gb_path, output_path): 
         self.data = SeqIO.parse(gb_path, 'gb')
-        self.path = pathlib.Path(gb_path)
+        self.id = gb_path.stem
+        self.path = output_path
         self.fasta_paths = []
         self.alignment_paths = []
         self.consensus_path = None
@@ -15,6 +16,7 @@ class genbankHandler():
         self.species_keys = self.gb.keys()
         self.consensus_sequences = None
         self._split_gb_by_species()
+
     def _split_gb_by_species(self):
         for gb_data in self.data: 
             organism = gb_data.annotations['organism']
@@ -25,21 +27,25 @@ class genbankHandler():
                     self.gb[organism] = [gb_data]
                 else: 
                     self.gb[organism].append(gb_data)
+
     def num_species(self): 
         return len(self.gb.keys()) 
+
     def output_species_gb(self): 
         for organism in self.gb.keys(): 
-            species_path = self.path.with_name(f'{organism.replace(" ","-")}_data.gb')
+            species_path = self.path.joinpath(f'{organism.replace(" ","-")}_data.gb')
             SeqIO.write(self.gb[organism], species_path, 'gb')
+
     def output_species_fasta(self): 
         for organism in self.gb.keys(): 
-            species_path = self.path.with_name(f'{organism.replace(" ","-")}.fasta')
+            species_path = self.path.joinpath(f'{organism.replace(" ","-")}.fasta')
             SeqIO.write(self.gb[organism], species_path, 'fasta')
             self.fasta_paths.append(pathlib.Path(species_path))
+
     def output_metadata(self): 
         #Loop through each organism
         for organism in self.gb.keys(): 
-            species_path = self.path.with_name(f'{organism.replace(" ","-")}_metadata.csv')
+            species_path = self.path.joinpath(f'{organism.replace(" ","-")}_metadata.csv')
             all_gb_data = []
             #Loop through each Genbank file
             for gb in self.gb[organism]: 
@@ -79,6 +85,7 @@ class genbankHandler():
             )
             csv_writer.writerows(all_gb_data)
             metadata_output.close()
+
     def generate_species_alignment(self): 
         for fasta_path in self.fasta_paths: 
             aligned_path = fasta_path.with_name(fasta_path.stem + '_aligned.fasta')
@@ -93,6 +100,7 @@ class genbankHandler():
             output_file.write(decoded)
             output_file.close()
             self.alignment_paths.append(pathlib.Path(aligned_path))
+
     def generate_consensus(self): 
         def get_seq_position_info(alignment): 
             """
@@ -213,10 +221,11 @@ class genbankHandler():
             consensus_seqs[alignment_id] = consensus_seq
         self.consensus_sequences = consensus_seqs
         #Output
-        self.consensus_path = self.path.with_name(self.path.stem + '_consensus.fasta')
+        self.consensus_path = self.path.joinpath(self.id + '_consensus.fasta')
         create_fasta(self.consensus_sequences, self.consensus_path)
+    
     def generate_consensus_alignment(self): 
-        consensus_alignment_path = self.path.with_name(self.path.stem + '_consensus_aligned.fasta')
+        consensus_alignment_path = self.path.joinpath(self.id + '_consensus_aligned.fasta')
         args =[
                 'mafft',
                 '--auto',
@@ -236,8 +245,19 @@ def parse_args():
         type=pathlib.Path,
         help='path to genbank file containing all data'
     )
+    parser.add_argument(
+        '--output',
+        '-o',
+        action='store',
+        dest='output_path',
+        default=None,
+        type=pathlib.Path,
+        help='Output destination path',
+    )
     args = parser.parse_args()
-    return args.genus_gb
+    if args.output_path is None: 
+        args.output_path = args.genus_gb.parent
+    return (args.genus_gb, args.output_path)
 
 def main(): 
     """
@@ -247,8 +267,8 @@ def main():
     3) Align .fasta files for each species
 
     """
-    genus_gb_path = parse_args()
-    genus_data = genbankHandler(genus_gb_path)
+    genus_gb_path, output_path = parse_args()
+    genus_data = genbankHandler(genus_gb_path, output_path)
     genus_data.output_species_gb()
     genus_data.output_species_fasta()
     genus_data.output_metadata()

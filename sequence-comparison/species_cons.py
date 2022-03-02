@@ -4,7 +4,7 @@ then align these consensus sequences to each other for creating sequence phyloge
 trees
 """
 
-from Bio import AlignIO
+from Bio import AlignIO, Seq
 import csv
 import argparse
 import subprocess
@@ -134,29 +134,59 @@ def create_fasta(cons_seqs, output_path, name):
 def parse_args():
     parser = argparse.ArgumentParser(description='species_cons.py - pipeline to generate species consensus sequences')
     parser.add_argument('species_alignment_path', 
-        metavar='species_alignments', 
+        metavar='species_alignment', 
         action='store', 
-        type=str,
+        type=pathlib.Path,
         help = 'path to species alignments directory'
     )
+    parser.add_argument('-b, --batch',
+        dest='flag_batch',
+        action='store_true', 
+        help='Use flag if you want to pass a directory'
+    )
     args = parser.parse_args()
-    species_alignment_path = pathlib.Path(args.species_alignment_path)
-    return species_alignment_path
-def main(species_alignment_path):
-    output_path = species_alignment_path.joinpath('results')
-    output_path.mkdir(exist_ok=True)
-    cons_seqs = dict()
-    for alignment_path in species_alignment_path.glob('*.fasta'):
-        alignment = AlignIO.read(alignment_path, 'fasta')
-        alignment_id = alignment_path.name.split('_data')[0]
+
+    return args.species_alignment_path, args.flag_batch
+def main():
+
+    species_alignment_path, flag_batch = parse_args()
+
+    if flag_batch is False:
+        output_path = species_alignment_path.parent 
+        alignment = AlignIO.read(species_alignment_path, 'fasta')
+        alignment_id = species_alignment_path.stem
         seq_info = get_seq_position_info(alignment)
         cons_seq, position_matrix = get_alignment_summary(seq_info)
+        #UNGAP
+        ungapped_cons_seq = str(Seq.Seq(cons_seq).ungap())
         #Output position_matrix
         output_csv(position_matrix, output_path, alignment_id+'_pos-matrix.csv')
         #Output seq_info
         output_csv(seq_info, output_path, alignment_id+'_seq-info.csv')
-        cons_seqs[alignment_id] = cons_seq
-    create_fasta(cons_seqs, output_path, 'all_sequences.fasta')
+        #Output consensus sequence
+        fasta_path = output_path.joinpath(f'{alignment_id}_consensus.fasta')
+        fasta_file = open(fasta_path, 'w')
+        fasta_file.write(f'>{alignment_id}\n')
+        fasta_file.write(ungapped_cons_seq)
+        fasta_file.close()
+    else: 
+        return   
+
+    #output_path = species_alignment_path.joinpath('results')
+    #output_path.mkdir(exist_ok=True)
+    #cons_seqs = dict()
+    #for alignment_path in species_alignment_path.glob('*.fasta'):
+    #    alignment = AlignIO.read(alignment_path, 'fasta')
+    #    alignment_id = alignment_path.name.split('_data')[0]
+    #    seq_info = get_seq_position_info(alignment)
+    #    cons_seq, position_matrix = get_alignment_summary(seq_info)
+        #Output position_matrix
+    #    output_csv(position_matrix, output_path, alignment_id+'_pos-matrix.csv')
+        #Output seq_info
+    #    output_csv(seq_info, output_path, alignment_id+'_seq-info.csv')
+    #    cons_seqs[alignment_id] = cons_seq
+    #create_fasta(cons_seqs, output_path, 'all_sequences.fasta')
+
 if __name__ == '__main__':
-    species_alignment_path = parse_args()
-    main(species_alignment_path)
+
+    main()

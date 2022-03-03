@@ -1,0 +1,225 @@
+### ============Boviteq Bisulfite Sequencing Data Analysis ========================
+#http://felixkrueger.github.io/Bismark/Docs/ -> most updated version
+#example: https://www.atsjournals.org/doi/full/10.1165/rcmb.2019-0150TR
+
+#You can use this command to allocate a node to use immediately
+>srun --account=def-padams --mem=128G --time=0-24:00 --cpus-per-task=32 --pty bash -i
+
+#===============Download Assembly(https://www.ncbi.nlm.nih.gov/assembly/GCF_002263795.1/)========
+#Downloaded RefSeq - Genomic FASTA, Genomic GTF, Genomic GFF
+#extract: e.g., tar xvf genome_assemblies_genome_fasta.tar
+
+#===============Download practice dataset=============================================
+#GEO: GSE147087 based on Zhou et al., 2020 BMC Biology (https://doi.org/10.1186/s12915-020-00793-5)
+
+>/home/joolee/tools/sra-tools/sratoolkit.2.9.6-ubuntu64/bin/fastq-dump --split-files SRR11422668 -O .
+>/home/joolee/tools/sra-tools/sratoolkit.2.9.6-ubuntu64/bin/fastq-dump --split-files SRR11422669 -O .
+>/home/joolee/tools/sra-tools/sratoolkit.2.9.6-ubuntu64/bin/fastq-dump --split-files SRR11422679 -O .
+>/home/joolee/tools/sra-tools/sratoolkit.2.9.6-ubuntu64/bin/fastq-dump --split-files SRR11422680 -O .
+
+#SRR11422668 -> blood1 
+#SRR11422669 -> blood2 
+#SRR11422679 -> rumen1 
+#SRR11422680 -> rumen2 
+
+>pigz -p 12 *.fastq
+
+#variables and modules
+#checking fastq files - html files
+>fastqc -t 12 -o $home/qc/raw/ $fastq/*.fastq
+
+#==============================trim reads (Trimmomatic) =============================
+##=============Slurm scheduler_begin=========================##
+#!/bin/bash
+##run as: sbatch *.sh
+
+#SBATCH --cpus-per-task=32
+#SBATCH --mem=128000M
+#SBATCH --time=1-00:00
+#SBATCH --account=def-padams
+#SBATCH --job-name=trimmomatic
+#SBATCH --output=%x_%j.out
+#SBATCH --error=%x_%j.error
+
+## Record job info
+JOBINFO=/home/joonlee3/log/job_info/${SLURM_JOB_ID}_${SLURM_JOB_NAME}
+echo "Starting run at: `date`" >> $JOBINFO
+
+## Variables
+home=/home/joonlee3/projects/def-padams/joonlee3/Boviteq/practice
+fastq=/home/joonlee3/projects/def-padams/joonlee3/Boviteq/practice/raw/practice
+trimmed=/home/joonlee3/projects/def-padams/joonlee3/Boviteq/practice/trimmed/practice
+orphaned=/home/joonlee3/projects/def-padams/joonlee3/Boviteq/practice/orphaned/practice
+
+## Load program
+module load  trimmomatic/0.39
+
+## Running programs
+ls $fastq |  grep fastq | sed s/_1.fastq.gz//g | sed s/_2.fastq.gz//g | sort | uniq > $home/trim_samplelist.txt
+while read prefix
+do
+pigz -d -p 32 $fastq/"$prefix"_1.fastq.gz
+pigz -d -p 32 $fastq/"$prefix"_2.fastq.gz
+java -jar $EBROOTTRIMMOMATIC/trimmomatic-0.39.jar PE -threads 32 -phred33 $fastq/"$prefix"_1.fastq $fastq/"$prefix"_2.fastq $trimmed/"$prefix"_1.fastq $orphaned/"$prefix"_un1.fastq $trimmed/"$prefix"_2.fastq $orphaned/"$prefix"_un2.fastq ILLUMINACLIP:$EBROOTTRIMMOMATIC/adapters/TruSeq3-PE.fa:2:30:10:2:keepBothReads LEADING:3 TRAILING:3 MINLEN:36
+pigz -p 32 $fastq/"$prefix"_1.fastq
+pigz -p 32 $fastq/"$prefix"_2.fastq
+pigz -p 32 $trimmed/"$prefix"_1.fastq
+pigz -p 32 $trimmed/"$prefix"_2.fastq
+pigz -p 32 $orphaned/"$prefix"_un1.fastq
+pigz -p 32 $orphaned/"$prefix"_un2.fastq
+done < $home/trim_samplelist.txt
+
+echo "Program finished with exit code $? at: `date`" >> $JOBINFO
+##=============Slurm scheduler_end=========================##
+
+#checking trimmed fastq files - html files
+>home=/home/joonlee3/projects/def-padams/joonlee3/Boviteq/practice
+>trimmed=/home/joonlee3/projects/def-padams/joonlee3/Boviteq/practice/trimmed/practice
+>fastqc -t 12 -o $home/qc/trimmed/ $trimmed/*.fastq
+
+
+###================Bismark Bisulfite Mapper======================
+###Userguide: https://rawgit.com/FelixKrueger/Bismark/master/Docs/Bismark_User_Guide.html
+#geome_preparation
+module load bowtie2/2.4.1
+module load bismark/0.22.3
+module load samtools/1.12
+genome=/home/joonlee3/projects/def-padams/joonlee3/Boviteq/reference/genome
+bismark_genome_preparation --bowtie2 --verbose --parallel 16 $genome
+
+
+#==================Bisulfite mapping==========================##
+##=============Slurm scheduler_begin=========================##
+#!/bin/bash
+##run as: sbatch *.sh
+
+#SBATCH --cpus-per-task=32
+#SBATCH --mem=128000M
+#SBATCH --time=2-00:00
+#SBATCH --account=def-padams
+#SBATCH --job-name=bismark_map_rumen2
+#SBATCH --output=%x_%j.out
+#SBATCH --error=%x_%j.error
+
+## Record job info
+JOBINFO=/home/joonlee3/log/job_info/${SLURM_JOB_ID}_${SLURM_JOB_NAME}
+echo "Starting run at: `date`" >> $JOBINFO
+
+## Variables
+home=/home/joonlee3/projects/def-padams/joonlee3/Boviteq/practice/slurm/rumen2
+genome=/home/joonlee3/projects/def-padams/joonlee3/Boviteq/reference/genome
+fastq=/home/joonlee3/projects/def-padams/joonlee3/Boviteq/practice/trimmed/practice
+output=/home/joonlee3/projects/def-padams/joonlee3/Boviteq/practice/bismark_bam/rumen2
+
+## Load program
+module load bowtie2/2.4.1
+module load bismark/0.22.3
+module load samtools/1.12
+
+## Running programs
+bismark --genome $genome -1 $fastq/rumen2_1.fastq.gz -2 $fastq/rumen2_2.fastq.gz --parallel 8 --non_directional -o $output
+
+echo "Program finished with exit code $? at: `date`" >> $JOBINFO
+##=============Slurm scheduler_end=========================##
+#55238849, 55238852, 55238853, 55238854
+#It fails (not enough memory) if you use more than --parallel 8 
+8-12
+
+
+#===============deduplicate_bismark===========================#
+deduplicate_bismark -p --bam test_1_bismark_bt2_pe.bam
+##=============Slurm scheduler_begin=========================##
+#!/bin/bash
+##run as: sbatch *.sh
+
+#SBATCH --cpus-per-task=32
+#SBATCH --mem=128000M
+#SBATCH --time=1-00:00
+#SBATCH --account=def-padams
+#SBATCH --job-name=bismark_deduplicate_rumen2
+#SBATCH --output=%x_%j.out
+#SBATCH --error=%x_%j.error
+
+## Record job info
+JOBINFO=/home/joonlee3/log/job_info/${SLURM_JOB_ID}_${SLURM_JOB_NAME}
+echo "Starting run at: `date`" >> $JOBINFO
+
+## Variables
+home=/home/joonlee3/projects/def-padams/joonlee3/Boviteq/practice/bismark_bam/rumen2
+
+## Load program
+module load bowtie2/2.4.1
+module load bismark/0.22.3
+module load samtools/1.12
+
+## Running programs
+deduplicate_bismark -p --bam $home/rumen2_1_bismark_bt2_pe.bam --output_dir $home
+
+echo "Program finished with exit code $? at: `date`" >> $JOBINFO
+##=============Slurm scheduler_end=========================##
+
+#==============index .bam file for IGV=====================#
+>samtools sort -@ 8 test_1_bismark_bt2_pe.deduplicated.bam > test_1_bismark_bt2_pe.deduplicated_sorted.bam
+>samtools index test_1_bismark_bt2_pe.deduplicated_sorted.bam
+
+
+
+
+
+
+
+
+#==============bismark_methylation_extractor=================#
+##=============Slurm scheduler_begin=========================##
+#!/bin/bash
+##run as: sbatch *.sh
+
+#SBATCH --cpus-per-task=32
+#SBATCH --mem=128000M
+#SBATCH --time=1-00:00
+#SBATCH --account=def-padams
+#SBATCH --job-name=bismark_methylation_extractor_rumen2
+#SBATCH --output=%x_%j.out
+#SBATCH --error=%x_%j.error
+
+## Record job info
+JOBINFO=/home/joonlee3/log/job_info/${SLURM_JOB_ID}_${SLURM_JOB_NAME}
+echo "Starting run at: `date`" >> $JOBINFO
+
+## Variables
+home=/home/joonlee3/projects/def-padams/joonlee3/Boviteq/practice/bismark_bam/rumen2
+
+## Load program
+module load bowtie2/2.4.1
+module load bismark/0.22.3
+module load samtools/1.12
+
+## Running programs
+bismark_methylation_extractor -p --parallel 16 --bedGraph $home/rumen2_1_bismark_bt2_pe.deduplicated.bam -o $home
+
+echo "Program finished with exit code $? at: `date`" >> $JOBINFO
+##=============Slurm scheduler_end=========================##
+
+
+
+
+#SNPsplit (https://www.bioinformatics.babraham.ac.uk/projects/SNPsplit/)
+#Download VCF file (http://ftp.ensembl.org/pub/release-105/variation/gvf/bos_taurus/)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

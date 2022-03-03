@@ -1,0 +1,22 @@
+### double digestion (ddRAD)
+### following the pipeline of https://github.com/notothen/radpilot
+library(here)
+library(tidyverse)
+library(Biostrings)
+library(ShortRead)
+library(zlibbioc)
+library(SimRAD)
+library(seqinr)
+source(here("recto_REs_and_functions_revised.R"))
+
+refgenome1 <- ref.DNAseq(here("refgenome/Trichoderma_atroviride/Trichoderma_atroviride"), subselect.contigs = F)
+width(refgenome1)
+GC(s2c(refgenome1))
+refgenome1_digest <- recto_digest(refgenome1, recto_REs, lower_size, upper_size, 1)
+write.csv(refgenome1_digest, file = here("data/in_silico_results/Trichoderma_atroviride_digest2.csv"))
+
+refgenome2 <- ref.DNAseq(here("refgenome/Trichoderma_virens/Trichoderma_virens_genomic.fna"), subselect.contigs = F)
+width(refgenome2)
+GC(s2c(refgenome2))
+refgenome2_digest <- recto_digest(refgenome2, recto_REs, lower_size, upper_size, 1)
+write.csv(refgenome2_digest, file = here("data/in_silico_results/Trichoderma_virens_digest2.csv"))

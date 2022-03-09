@@ -6,8 +6,14 @@ import subprocess
 
 class genbankHandler(): 
     def __init__(self, gb_path, output_path): 
+        def parse_gb(gb_path): 
+            gb_data = []
+            data = SeqIO.parse(gb_path, 'gb')
+            for item in data: 
+                gb_data.append(item)
+            return gb_data
         #data - contains raw gb file
-        self.data = SeqIO.parse(gb_path, 'gb')
+        self.data = parse_gb(gb_path)
         #id - comes from gb file name
         self.id = gb_path.stem
         self.path = output_path

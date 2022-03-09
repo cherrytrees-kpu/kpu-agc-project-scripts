@@ -85,15 +85,26 @@ def parse_args():
         type=pathlib.Path, 
         help = 'path to a GenBank file'
     )
+    parser.add_argument('-o',
+        dest='output_path', 
+        action='store', 
+        type=pathlib.Path,
+        default=None,
+        help='output path'
+    )
     args = parser.parse_args()
-    return args.d
+    output_path = args.d.parents
+    if args.output_path:
+        output_path = args.output_path
+    return (args.d, output_path)
+
 def main():
 
-    path = parse_args()
+    gb_path, output_path = parse_args()
 
-    if path.is_file() is True:
+    if gb_path.is_file() is True:
         #Continue program
-        data = SeqIO.parse(path, 'gb')
+        data = SeqIO.parse(gb_path, 'gb')
         #fasta
         list_fasta = []
         #metadata
@@ -129,8 +140,8 @@ def main():
         meta_df = pd.DataFrame(data=metadata)
 
         #Output
-        output_fasta(list_fasta, path.with_name(path.stem + '.fasta'))
-        meta_df.to_csv(path.with_name(path.stem + '_metadata.csv'), index=False)
+        output_fasta(list_fasta, output_path.joinpath(gb_path.stem + '.fasta'))
+        meta_df.to_csv(output_path.joinpath(gb_path.stem + '_metadata.csv'), index=False)
     else: 
         print("Not a GenBank file.") 
         

@@ -6,12 +6,21 @@ import subprocess
 
 class genbankHandler(): 
     def __init__(self, gb_path, output_path): 
-        self.data = SeqIO.parse(gb_path, 'gb')
+        def parse_gb(gb_path): 
+            gb_data = []
+            data = SeqIO.parse(gb_path, 'gb')
+            for item in data: 
+                gb_data.append(item)
+            return gb_data
+        #data - contains raw gb file
+        self.data = parse_gb(gb_path)
+        #id - comes from gb file name
         self.id = gb_path.stem
         self.path = output_path
         self.fasta_paths = []
         self.alignment_paths = []
         self.consensus_path = None
+        #gb - dictionary of species names mapped to a list of data corresponding to each sequence belonging to that species
         self.gb = dict()
         self.species_keys = self.gb.keys()
         self.consensus_sequences = None
@@ -28,9 +37,35 @@ class genbankHandler():
                 else: 
                     self.gb[organism].append(gb_data)
 
-    def num_species(self): 
-        return len(self.gb.keys()) 
+    def generate_metadata(self): 
+        #We want to know the following: 
+        #1) Number of species present
+        #2) Number of species that did not have a species call
+        #3) Number of sequences belonging to each species
+        no_species_call = []
+        #Identifying which accessions do not have a species call...
+        for gb_data in self.data: 
+            organism = gb_data.annotations['organism']
+            accession= gb_data.id
+            species_name = organism.split(' ')[1]
+            if species_name == 'sp.': 
+                no_species_call.append((organism, accession))
+        #Get number of species
+        num_species = len(self.gb.keys())
 
+        #Open the file
+        metadata_file_path = self.path.joinpath(f'{self.id}_metadata.csv')
+        metadata_file = open(metadata_file_path, 'w')
+        metadata_file.write(f'Species ({str(num_species)}):\n')
+        #Write the species and the number of sequences available for each one
+        for species in self.gb: 
+            metadata_file.write(f'{species},{len(self.gb[species])}\n')
+        #write the no species
+        metadata_file.write(f'No species call ({str(len(no_species_call))}):\n')
+        for sequence in no_species_call: 
+            metadata_file.write(f'{sequence[0]},{sequence[1]}\n')
+        metadata_file.close()
+        
     def output_species_gb(self): 
         for organism in self.gb.keys(): 
             species_path = self.path.joinpath(f'{organism.replace(" ","-")}_data.gb')
@@ -42,7 +77,7 @@ class genbankHandler():
             SeqIO.write(self.gb[organism], species_path, 'fasta')
             self.fasta_paths.append(pathlib.Path(species_path))
 
-    def output_metadata(self): 
+    def output_species_metadata(self): 
         #Loop through each organism
         for organism in self.gb.keys(): 
             species_path = self.path.joinpath(f'{organism.replace(" ","-")}_metadata.csv')
@@ -271,10 +306,11 @@ def main():
     genus_data = genbankHandler(genus_gb_path, output_path)
     genus_data.output_species_gb()
     genus_data.output_species_fasta()
-    genus_data.output_metadata()
+    genus_data.output_species_metadata()
     genus_data.generate_species_alignment()
     genus_data.generate_consensus()
     genus_data.generate_consensus_alignment()
+    genus_data.generate_metadata()
 
 if __name__ == '__main__': 
     main()

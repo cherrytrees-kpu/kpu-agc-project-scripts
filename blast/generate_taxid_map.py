@@ -13,16 +13,26 @@ def parse_args():
         type=pathlib.Path, 
         help = 'name of input .gb file'
     )
+    parser.add_argument('-o',
+        dest='output_path', 
+        action='store', 
+        type=pathlib.Path,
+        default=None,
+        help='output path'
+    )
     args = parser.parse_args()
-    return args.f
+    output_path = args.f.parents
+    if args.output_path: 
+        output_path = args.output_path
+    return (args.f, output_path)
 
 def main():
-    genbank_filepath = parse_args()
+    genbank_filepath, output_path = parse_args()
     num_seq = 0
     num_unidentified = 0
     #Open Genbank file
-    output_path = genbank_filepath.with_name(genbank_filepath.stem + '_taxid_map.txt')
-    f = open(output_path,'w')
+    taxid_map_path = output_path.joinpath(genbank_filepath.stem + '_taxid_map.txt')
+    f = open(taxid_map_path,'w')
     #Map db_xref to accesion
     for gb in SeqIO.parse(genbank_filepath,"gb"):
         try:

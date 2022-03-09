@@ -48,7 +48,7 @@ class genbankHandler():
             organism = gb_data.annotations['organism']
             accession= gb_data.id
             species_name = organism.split(' ')[1]
-            if (species_name != 'sp.') or (species_name != 'cf.') or (species_name !='aff.'): 
+            if (species_name == 'sp.') or (species_name == 'cf.') or (species_name =='aff.'): 
                 no_species_call.append((organism, accession))
         #Get number of species
         num_species = len(self.gb.keys())

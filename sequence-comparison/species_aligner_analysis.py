@@ -42,20 +42,20 @@ class genbankHandler():
             organism = gb_data.annotations['organism']
             accession= gb_data.id
             species_name = organism.split(' ')[1]
-            if species_name != 'sp.': 
+            if species_name == 'sp.': 
                 no_species_call.append((organism, accession))
         #Get number of species
         num_species = len(self.gb.keys())
 
         #Open the file
-        metadata_file_path = self.path.with_name(f'{self.id}_metadata.csv')
+        metadata_file_path = self.path.joinpath(f'{self.id}_metadata.csv')
         metadata_file = open(metadata_file_path, 'w')
-        metadata_file.write('Species:\n')
+        metadata_file.write(f'Species ({str(num_species)}):\n')
         #Write the species and the number of sequences available for each one
         for species in self.gb: 
             metadata_file.write(f'{species},{len(self.gb[species])}\n')
         #write the no species
-        metadata_file.write('No species call:\n')
+        metadata_file.write(f'No species call ({str(len(no_species_call))}):\n')
         for sequence in no_species_call: 
             metadata_file.write(f'{sequence[0]},{sequence[1]}\n')
         metadata_file.close()
